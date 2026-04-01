@@ -24,6 +24,8 @@ import {
 import { searchItems, searchItemsByKeyword, getItem } from "./ebay-api";
 import { searchVideoSchema, itemVideoSchema } from "./ebay-validation";
 import { renderMedia, selectComposition as selectComp } from "@remotion/renderer";
+import { generateVideoScript, generateScriptForStore, Platform } from "./script-generator";
+import { z } from "zod";
 
 dotenv.config({ quiet: true });
 
@@ -131,6 +133,84 @@ app.get("/health", (req, res) => {
     },
   });
 });
+
+// ─── eBay Script Generation Endpoints ───────────────────────────────────────
+
+const generateScriptSchema = z.object({
+  keyword: z.string().min(1),
+  storeName: z.string().optional(),
+  platform: z.enum(["tiktok", "instagram"]).default("tiktok"),
+  itemCount: z.coerce.number().min(1).max(5).default(1),
+});
+
+const generateScriptByItemSchema = z.object({
+  itemId: z.string().min(1),
+  platform: z.enum(["tiktok", "instagram"]).default("tiktok"),
+});
+
+// GET /generate-script/search — generate AI video script from product search
+app.get(
+  "/generate-script/search",
+  handler(async (req, res) => {
+    const parsed = generateScriptSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid parameters", details: parsed.error.flatten() });
+      return;
+    }
+
+    const { keyword, storeName, platform, itemCount } = parsed.data;
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Generating ${platform} script for keyword: "${keyword}"`);
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
+      return;
+    }
+
+    const result = storeName
+      ? await searchItems(storeName, keyword, itemCount)
+      : await searchItemsByKeyword(keyword, itemCount);
+
+    if (result.items.length === 0) {
+      res.status(404).json({ error: "No products found" });
+      return;
+    }
+
+    const script = storeName
+      ? await generateScriptForStore(result.items, platform as Platform, storeName)
+      : await generateVideoScript(result.items[0], platform as Platform);
+
+    console.log(`[${timestamp}] Script generated — ${script.scenes.length} scenes, ${script.totalDuration}`);
+    res.status(200).json(script);
+  })
+);
+
+// GET /generate-script/item — generate AI video script for a specific eBay item
+app.get(
+  "/generate-script/item",
+  handler(async (req, res) => {
+    const parsed = generateScriptByItemSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid parameters", details: parsed.error.flatten() });
+      return;
+    }
+
+    const { itemId, platform } = parsed.data;
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Generating ${platform} script for item: ${itemId}`);
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
+      return;
+    }
+
+    const product = await getItem(itemId);
+    const script = await generateVideoScript(product, platform as Platform);
+
+    console.log(`[${timestamp}] Script generated — ${script.scenes.length} scenes, ${script.totalDuration}`);
+    res.status(200).json(script);
+  })
+);
 
 // ─── eBay Video Generation Endpoints ────────────────────────────────────────
 
