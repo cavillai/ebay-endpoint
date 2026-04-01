@@ -16,6 +16,10 @@ import { helpText } from "./help-text";
 import { getImageType, getMimeType } from "./image-types";
 import { getImageHash } from "./make-hash";
 import { sendFile } from "./send-file";
+import {
+  validateChallenge,
+  handleAccountDeletionNotification,
+} from "./ebay-notifications";
 
 dotenv.config({ quiet: true });
 
@@ -40,6 +44,71 @@ app.use(
     max: 20,
   }),
 );
+
+// JSON body parser for eBay notification webhook
+app.use(express.json());
+
+// eBay Marketplace Account Deletion Notification Endpoints
+// Challenge code verification: https://developer.ebay.com/develop/guides-v2/marketplace-user-account-deletion/marketplace-user-account-deletion
+const EBAY_VERIFICATION_TOKEN = process.env.EBAY_VERIFICATION_TOKEN;
+const EBAY_ENDPOINT_URL =
+  process.env.EBAY_ENDPOINT_URL ||
+  "http://localhost:8000/ebay-account-deletion";
+
+app.get("/ebay-account-deletion", (req, res) => {
+  const challengeCode = req.query.challenge_code as string;
+
+  if (!challengeCode) {
+    console.log(
+      "[eBay] Challenge code missing from request. URL:",
+      req.originalUrl
+    );
+    res.status(400).json({ error: "challenge_code parameter is required" });
+    return;
+  }
+
+  if (!EBAY_VERIFICATION_TOKEN) {
+    console.error(
+      "[eBay] EBAY_VERIFICATION_TOKEN environment variable is not set"
+    );
+    res.status(500).json({ error: "Verification token not configured" });
+    return;
+  }
+
+  try {
+    const challengeResponse = validateChallenge(
+      challengeCode,
+      EBAY_VERIFICATION_TOKEN,
+      EBAY_ENDPOINT_URL
+    );
+
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] eBay Challenge Code Validation Success`);
+    console.log(`[${timestamp}] Challenge Code: ${challengeCode}`);
+    console.log(`[${timestamp}] Response Hash: ${challengeResponse}`);
+
+    res.status(200).json({ challengeResponse });
+  } catch (error) {
+    console.error("[eBay] Challenge validation error:", error);
+    res.status(500).json({ error: "Failed to validate challenge code" });
+  }
+});
+
+app.post("/ebay-account-deletion", (req, res) => {
+  const timestamp = new Date().toISOString();
+
+  try {
+    console.log(`[${timestamp}] eBay Account Deletion Notification Received`);
+    handleAccountDeletionNotification(req.body);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error(
+      `[${timestamp}] Error processing account deletion notification:`,
+      error
+    );
+    res.status(500).json({ error: "Failed to process notification" });
+  }
+});
 
 // The image is rendered when /[CompositionName].[imageformat] is called.
 // Props are passed via query string.
