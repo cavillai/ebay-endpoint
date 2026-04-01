@@ -19,6 +19,7 @@ import { sendFile } from "./send-file";
 import {
   validateChallenge,
   handleAccountDeletionNotification,
+  getNotificationStats,
 } from "./ebay-notifications";
 
 dotenv.config({ quiet: true });
@@ -108,6 +109,24 @@ app.post("/ebay-account-deletion", (req, res) => {
     );
     res.status(500).json({ error: "Failed to process notification" });
   }
+});
+
+// Monitoring endpoint to check notification history
+app.get("/ebay-notifications/stats", (req, res) => {
+  res.status(200).json(getNotificationStats());
+});
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      ebay_notifications: "/ebay-account-deletion",
+      monitoring: "/ebay-notifications/stats",
+      health: "/health",
+    },
+  });
 });
 
 // The image is rendered when /[CompositionName].[imageformat] is called.

@@ -1,5 +1,16 @@
 import * as crypto from 'crypto';
 
+// In-memory store for notifications (for monitoring purposes)
+export interface NotificationRecord {
+  timestamp: string;
+  userId?: string;
+  accountClosureReason?: string;
+  fullData: Record<string, unknown>;
+}
+
+const notificationHistory: NotificationRecord[] = [];
+const MAX_HISTORY = 100; // Keep last 100 notifications
+
 /**
  * Validates eBay's challenge code by hashing it with the verification token and endpoint URL
  * This is required for the initial endpoint verification handshake with eBay
@@ -27,21 +38,54 @@ export function handleAccountDeletionNotification(
 ): void {
   const timestamp = new Date().toISOString();
 
+  // Extract key fields if present
+  const userId = (notificationData as any)?.userId;
+  const accountClosureReason = (notificationData as any)?.accountClosureReason;
+
+  // Create notification record
+  const record: NotificationRecord = {
+    timestamp,
+    userId,
+    accountClosureReason,
+    fullData: notificationData,
+  };
+
+  // Store in history
+  notificationHistory.unshift(record); // Add to front
+  if (notificationHistory.length > MAX_HISTORY) {
+    notificationHistory.pop(); // Remove oldest if exceeds max
+  }
+
+  // Log to console for Railway logs
   console.log(
     `[${timestamp}] eBay Account Deletion Notification Received:`,
     JSON.stringify(notificationData, null, 2)
   );
 
-  // Extract key fields if present
-  const userId = (notificationData as any)?.userId;
-  const accountClosureReason = (notificationData as any)?.accountClosureReason;
-
   if (userId) {
-    console.log(`[${timestamp}] Account Deletion - User ID: ${userId}`);
+    console.log(`[${timestamp}] ✓ Account Deletion - User ID: ${userId}`);
   }
   if (accountClosureReason) {
-    console.log(`[${timestamp}] Closure Reason: ${accountClosureReason}`);
+    console.log(`[${timestamp}] ✓ Closure Reason: ${accountClosureReason}`);
   }
+}
+
+/**
+ * Get all stored notifications for monitoring
+ */
+export function getNotificationHistory(): NotificationRecord[] {
+  return notificationHistory;
+}
+
+/**
+ * Get notification stats
+ */
+export function getNotificationStats() {
+  return {
+    totalReceived: notificationHistory.length,
+    latestNotification: notificationHistory[0] || null,
+    notifications: notificationHistory,
+  };
 }
 
 /**
