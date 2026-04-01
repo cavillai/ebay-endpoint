@@ -38,6 +38,12 @@ WORKDIR /app
 
 RUN npm install && npm run make
 
+# Create non-privileged user for running the application
+RUN groupadd -r pptruser && useradd -r -g pptruser pptruser
+
+# Change ownership of app directory to pptruser
+RUN chown -R pptruser:pptruser /app
+
 # Run everything after as non-privileged user.
 USER pptruser
 
