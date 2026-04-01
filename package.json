@@ -8,6 +8,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",
     "@aws-sdk/client-s3": "3.986.0",
+    "@remotion/animation-utils": "^4.0.443",
     "@remotion/bundler": "4.0.443",
     "@remotion/cli": "4.0.443",
     "@remotion/google-fonts": "^4.0.443",
@@ -27,6 +28,7 @@
     "p-limit": "3.1.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-spring": "^10.0.3",
     "remotion": "4.0.443",
     "zod": "4.3.6"
   },

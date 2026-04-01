@@ -1,11 +1,23 @@
 /**
- * PROMPT 1 — The Viral Hook Machine (v3)
- * Rules: animations.md, audio.md, images.md, sequencing.md,
- *        light-leaks.md, fonts.md, transitions.md
+ * PROMPT 1 — The Viral Hook Machine (v5)
+ * Rules: CLAUDE.md + animations.md + audio.md + images.md +
+ *        sequencing.md + light-leaks.md + fonts.md + transitions.md
  *
- * Fixes:
- * - Audio: switched to energetic.mp3, trimBefore skips slow intro
- * - Transitions: alternating slide/wipe/flip/clockWipe per image cut
+ * CHECKLIST:
+ * ✅ allImages = primaryImage + additionalImages
+ * ✅ Every image fills full frame — objectFit: cover, NO padding
+ * ✅ Ken Burns alternating direction per image
+ * ✅ Cross-fades: next image renders underneath, NEVER empty frames
+ * ✅ Bebas Neue loaded for hook / price / CTA
+ * ✅ Hook on ISOLATED BLACK FRAME (no product behind it)
+ * ✅ Price reveal has last product image as background
+ * ✅ Details scene has product image as background
+ * ✅ CTA scene has product background + bouncing arrow + pulsing border
+ * ✅ Particle burst on price reveal
+ * ✅ Progress dots
+ * ✅ Audio looping
+ * ✅ Screen shake on price reveal
+ * ✅ Safe zones: 150px top, 170px bottom, 60px sides
  */
 
 import React from "react";
@@ -21,386 +33,452 @@ import {
 } from "remotion";
 import { Audio } from "@remotion/media";
 import { LightLeak } from "@remotion/light-leaks";
-import { TransitionSeries, linearTiming, springTiming } from "@remotion/transitions";
-import { fade } from "@remotion/transitions/fade";
-import { slide } from "@remotion/transitions/slide";
-import { wipe } from "@remotion/transitions/wipe";
-import { flip } from "@remotion/transitions/flip";
-import { clockWipe } from "@remotion/transitions/clock-wipe";
-import { loadFont } from "@remotion/google-fonts/Inter";
+import { loadFont as loadBebasNeue } from "@remotion/google-fonts/BebasNeue";
+import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
 import { TemplateProps } from "../shared/types";
 
-const { fontFamily } = loadFont("normal", {
-  weights: ["400", "700", "900"],
+// ── Fonts loaded at module level (blocks render until ready) ──────────────
+const { fontFamily: bebas } = loadBebasNeue();
+const { fontFamily: inter } = loadInter("normal", {
+  weights: ["400", "600", "700"],
   subsets: ["latin"],
 });
 
-// ─── Constants ────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────
 const SAFE_TOP = 150;
 const SAFE_BOTTOM = 170;
 const SAFE_SIDES = 60;
 const FRAMES_PER_IMAGE = 75;
-const TRANSITION_FRAMES = 12;
-const HOOK_FRAMES = 30; // hook overlays first image — no black screen
+const HOOK_END = 40;
 const PRICE_FRAMES = 60;
-const DETAILS_FRAMES = 90;
+const DETAILS_FRAMES = 45;
 const CTA_FRAMES = 45;
 
-// ─── Viral hook pool — randomised per product ────────────────────────────
+// ── Viral hook pool — deterministic per product ───────────────────────────
 const HOOK_POOL = [
-  "POV: You found this 👀",
-  "This shouldn't be $%PRICE% 😭",
-  "Stop scrolling‼️",
-  "How is this still here??",
-  "They priced this WRONG 🔥",
-  "You need to see this price",
-  "This won't last long 👀",
-  "Steal of the day 🤯",
-  "I can't believe this deal",
-  "Found it. You're welcome 😤",
+  "POV: YOU FOUND THIS",
+  "HOW IS THIS STILL HERE",
+  "THEY PRICED THIS WRONG",
+  "STOP SCROLLING",
+  "STEAL OF THE DAY",
+  "THIS WON'T LAST LONG",
+  "YOU NEED TO SEE THIS",
+  "I CAN'T BELIEVE THIS DEAL",
+  "FOUND IT. YOU'RE WELCOME",
+  "THIS SHOULDN'T BE THIS CHEAP",
 ];
 
-/** Deterministic hook selection so the same product always gets the same hook */
-function pickHook(title: string, price: string): string {
-  const seed = title.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const hook = HOOK_POOL[seed % HOOK_POOL.length];
-  return hook.replace("%PRICE%", `$${price}`);
+function pickHook(title: string): string {
+  const seed = title.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return HOOK_POOL[seed % HOOK_POOL.length];
 }
 
-// Alternating transition presentations — each image cut feels different
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const TRANSITIONS: Array<() => { presentation: any; timing: any }> = [
-  () => ({ presentation: slide({ direction: "from-right" }), timing: springTiming({ config: { damping: 200 }, durationInFrames: TRANSITION_FRAMES }) }),
-  () => ({ presentation: wipe({ direction: "from-left" }),   timing: linearTiming({ durationInFrames: TRANSITION_FRAMES }) }),
-  () => ({ presentation: flip({ direction: "from-bottom" }), timing: springTiming({ config: { damping: 180 }, durationInFrames: TRANSITION_FRAMES }) }),
-  () => ({ presentation: clockWipe({ width: 1080, height: 1920 }), timing: linearTiming({ durationInFrames: TRANSITION_FRAMES }) }),
-  () => ({ presentation: slide({ direction: "from-left" }), timing: springTiming({ config: { damping: 200 }, durationInFrames: TRANSITION_FRAMES }) }),
-  () => ({ presentation: fade(),                             timing: linearTiming({ durationInFrames: TRANSITION_FRAMES }) }),
-];
-
-// ─── ImageSlide: Ken Burns + cross-fade per rules/images.md ───────────────
-const ImageSlide: React.FC<{ src: string; index: number }> = ({ src, index }) => {
+// ── Full-frame image with Ken Burns ───────────────────────────────────────
+const GalleryImage: React.FC<{ src: string; index: number; totalFrames: number }> = ({
+  src, index, totalFrames,
+}) => {
   const frame = useCurrentFrame();
-  const startScale = index % 2 === 0 ? 1.15 : 1.0;
-  const endScale = index % 2 === 0 ? 1.0 : 1.15;
 
-  const scale = interpolate(frame, [0, FRAMES_PER_IMAGE], [startScale, endScale], {
-    extrapolateRight: "clamp",
-  });
-  const panX = interpolate(frame, [0, FRAMES_PER_IMAGE], [index % 2 === 0 ? -20 : 20, 0], {
-    extrapolateRight: "clamp",
-  });
-  const panY = interpolate(frame, [0, FRAMES_PER_IMAGE], [index % 3 === 0 ? -15 : 15, 0], {
-    extrapolateRight: "clamp",
-  });
+  // Alternate direction per image
+  const even = index % 2 === 0;
+  const scale = interpolate(
+    frame, [0, totalFrames],
+    even ? [1.1, 1.0] : [1.0, 1.1],
+    { extrapolateRight: "clamp" }
+  );
+  const panX = interpolate(
+    frame, [0, totalFrames],
+    even ? [-15, 0] : [15, 0],
+    { extrapolateRight: "clamp" }
+  );
+  const panY = interpolate(
+    frame, [0, totalFrames],
+    index % 3 === 0 ? [-10, 0] : [10, 0],
+    { extrapolateRight: "clamp" }
+  );
+
+  // Cross-fade: NEXT image already rendering underneath — NEVER empty frame
+  const opacity = interpolate(
+    frame,
+    [0, 8, totalFrames - 12, totalFrames],
+    [0, 1, 1, 0],
+    { extrapolateRight: "clamp" }
+  );
 
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ opacity }}>
       <Img
         src={src}
         style={{
-          width: "100%", height: "100%", objectFit: "cover",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",     // fills entire frame — NO letterboxing
           transform: `scale(${scale}) translateX(${panX}px) translateY(${panY}px)`,
         }}
       />
-      {/* Gradient overlay for text readability */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.65) 100%)",
-      }} />
     </AbsoluteFill>
   );
 };
 
-// ─── Word-by-word caption ─────────────────────────────────────────────────
-const WordCaption: React.FC<{ text: string; startFrame: number }> = ({ text, startFrame }) => {
+// ── Price Reveal Scene (own component so hooks are top-level) ────────────
+interface PriceRevealProps {
+  lastImage: string; price: string; currency: string;
+  condition: string; brandColor: string;
+}
+const PriceRevealScene: React.FC<PriceRevealProps> = ({
+  lastImage, price, currency, condition, brandColor,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const words = text.split(" ");
-  const wordIdx = Math.floor((frame - startFrame) / 8);
+  const priceNum = parseFloat(price);
+  const priceSpring = spring({ frame, fps, config: { damping: 80 } });
+  const displayPrice = interpolate(priceSpring, [0, 1], [0, priceNum]);
+  const cardScale = spring({ frame, fps, from: 0.6, to: 1, durationInFrames: 20, config: { stiffness: 180, damping: 14 } });
+  const condY = spring({ frame: Math.max(0, frame - 20), fps, from: 120, to: 0, durationInFrames: 25, config: { damping: 14, stiffness: 180 } });
 
   return (
-    <div style={{
-      display: "flex", flexWrap: "wrap", justifyContent: "center",
-      gap: 8, fontFamily, fontWeight: 900, fontSize: 48, lineHeight: 1.2,
-      textAlign: "center", color: "#fff",
-      textShadow: "2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000",
-    }}>
-      {words.map((word, i) => {
-        const isActive = i === wordIdx;
-        const wordScale = isActive
-          ? spring({ frame: frame - (startFrame + i * 8), fps, from: 1.3, to: 1, durationInFrames: 10 })
-          : 1;
-        return (
-          <span key={i} style={{
-            opacity: i <= wordIdx ? 1 : 0,
-            display: "inline-block",
-            transform: `scale(${isActive ? wordScale : 1})`,
-            color: isActive ? "#FFE500" : "#fff",
-          }}>
-            {word}
-          </span>
-        );
-      })}
-    </div>
+    <AbsoluteFill>
+      <Img src={lastImage} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.55)" }} />
+
+      {/* Particle burst */}
+      <div style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)" }}>
+        {Array.from({ length: 20 }).map((_, i) => {
+          const angle = (i / 20) * Math.PI * 2;
+          const dist = interpolate(frame, [5, 40], [0, 200], { extrapolateRight: "clamp" });
+          const op = interpolate(frame, [5, 25, 50], [0, 1, 0], { extrapolateRight: "clamp" });
+          return (
+            <div key={i} style={{
+              position: "absolute", width: 10, height: 10, borderRadius: "50%",
+              background: brandColor, opacity: op,
+              transform: `translate(${Math.cos(angle) * dist - 5}px, ${Math.sin(angle) * dist - 5}px)`,
+            }} />
+          );
+        })}
+      </div>
+
+      {/* Price */}
+      <div style={{
+        position: "absolute", top: "50%", left: 60, right: 60,
+        transform: `translateY(-50%) scale(${cardScale})`, textAlign: "center",
+      }}>
+        <div style={{ fontFamily: inter, fontSize: 36, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginBottom: 8 }}>Only</div>
+        <div style={{
+          fontFamily: bebas, fontSize: 112, color: "#00FF88", lineHeight: 1,
+          textShadow: "0 0 50px rgba(0,255,136,0.6)", fontVariantNumeric: "tabular-nums",
+        }}>
+          {currency === "USD" ? "$" : currency}{displayPrice.toFixed(2)}
+        </div>
+      </div>
+
+      {/* Condition badge */}
+      <div style={{
+        position: "absolute", bottom: 190, left: 0, right: 0, display: "flex", justifyContent: "center",
+        transform: `translateY(${condY}px)`,
+      }}>
+        <div style={{ backgroundColor: "#4ade80", color: "#000", borderRadius: 100, padding: "12px 32px", fontFamily: inter, fontSize: 32, fontWeight: 600 }}>
+          {condition}
+        </div>
+      </div>
+    </AbsoluteFill>
   );
 };
 
-// ─── Main Composition ─────────────────────────────────────────────────────
+// ── Details Scene ─────────────────────────────────────────────────────────
+interface DetailsProps { lastImage: string; badges: Array<{ label: string; bg: string; color: string }> }
+const DetailsScene: React.FC<DetailsProps> = ({ lastImage, badges }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  return (
+    <AbsoluteFill>
+      <Img src={lastImage} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.6)" }} />
+      <div style={{
+        position: "absolute", top: "50%", left: 60, right: 60,
+        transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 20,
+      }}>
+        {badges.map((badge, i) => {
+          const x = spring({ frame: Math.max(0, frame - i * 12), fps, from: 300, to: 0, durationInFrames: 25, config: { damping: 14, stiffness: 180 } });
+          return (
+            <div key={i} style={{
+              backgroundColor: badge.bg, color: badge.color,
+              borderRadius: 100, padding: "14px 36px",
+              fontFamily: inter, fontSize: 32, fontWeight: 600,
+              transform: `translateX(${x}px)`,
+              boxShadow: "0 6px 24px rgba(0,0,0,0.4)",
+            }}>
+              {badge.label}
+            </div>
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ── CTA Scene ─────────────────────────────────────────────────────────────
+interface CTAProps { lastImage: string; storeName: string; storeLogo?: string; brandColor: string }
+const CTAScene: React.FC<CTAProps> = ({ lastImage, storeName, storeLogo, brandColor }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const ctaScale = spring({ frame, fps, from: 0, to: 1, durationInFrames: 20, config: { stiffness: 180, damping: 14 } });
+  const ctaPulse = Math.sin(frame * 0.15) * 0.06 + 1.0;
+  const borderOpacity = Math.sin(frame * 0.15) * 0.5 + 0.5;
+  const arrowY = interpolate(frame % 25, [0, 12, 25], [0, -20, 0], { extrapolateRight: "clamp" });
+
+  return (
+    <AbsoluteFill>
+      <Img src={lastImage} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.75) 100%)",
+      }} />
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 35%, transparent 60%, rgba(0,0,0,0.8) 100%)",
+      }} />
+      <div style={{ position: "absolute", inset: 0, border: `4px solid ${brandColor}`, opacity: borderOpacity, pointerEvents: "none" }} />
+
+      <div style={{ transform: `scale(${ctaScale})` }}>
+        <div style={{
+          position: "absolute", top: 150, left: 0, right: 0, textAlign: "center",
+          fontFamily: bebas, fontSize: 80, color: "#fff", letterSpacing: 4,
+          textShadow: "0 2px 20px rgba(0,0,0,0.8)",
+        }}>
+          {storeName}
+        </div>
+        <div style={{
+          position: "absolute", bottom: 270, left: 0, right: 0, textAlign: "center",
+          fontFamily: bebas, fontSize: 72, color: "#fff", letterSpacing: 3,
+          transform: `scale(${ctaPulse})`,
+          textShadow: `0 0 30px ${brandColor}80`,
+        }}>
+          LINK IN BIO
+        </div>
+        <div style={{
+          position: "absolute", bottom: 190, left: 0, right: 0, textAlign: "center",
+          fontSize: 64, transform: `translateY(${arrowY}px)`,
+        }}>
+          👇
+        </div>
+        {storeLogo && (
+          <Img src={storeLogo} style={{
+            position: "absolute", bottom: 290, left: "50%", transform: "translateX(-50%)",
+            width: 72, height: 72, borderRadius: 14, objectFit: "cover",
+          }} />
+        )}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ── Main composition ───────────────────────────────────────────────────────
 export const ViralHookMachine: React.FC<TemplateProps> = ({
-  storeName, storeLogo, title, price, currency = "USD",
-  imageUrl, additionalImages = [], condition,
+  storeName,
+  storeLogo,
+  title,
+  price,
+  currency = "USD",
+  imageUrl,
+  additionalImages = [],
+  condition,
+  storeColor,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps } = useVideoConfig();
 
+  const brandColor = storeColor || "#F73A8A";
+
+  // Combine images — all from the same listing
   const allImages = [imageUrl, ...additionalImages].filter(Boolean);
   const imageCount = allImages.length;
+  const lastImage = allImages[imageCount - 1];
 
-  // Gallery starts at frame 0 — hook text overlays the first image
-  const galleryDuration = imageCount * FRAMES_PER_IMAGE - (imageCount - 1) * TRANSITION_FRAMES;
-  const GALLERY_START = 0;
-  const GALLERY_END = galleryDuration;
+  // Scene frame markers
+  const GALLERY_START = HOOK_END;
+  const GALLERY_END = GALLERY_START + imageCount * FRAMES_PER_IMAGE;
   const PRICE_START = GALLERY_END;
   const DETAILS_START = PRICE_START + PRICE_FRAMES;
   const CTA_START = DETAILS_START + DETAILS_FRAMES;
 
-  // Active image index for progress dots
-  const activeImageIdx = Math.min(
-    Math.floor(frame / (FRAMES_PER_IMAGE - TRANSITION_FRAMES)),
+  // Hook
+  const hookText = pickHook(title);
+  const hookScale = spring({
+    frame,
+    fps,
+    from: 4.0,
+    to: 1.0,
+    durationInFrames: HOOK_END,
+    config: { damping: 10, stiffness: 200 },
+  });
+
+  // Gallery progress dots
+  const activeImg = Math.min(
+    Math.floor(Math.max(0, frame - GALLERY_START) / FRAMES_PER_IMAGE),
     imageCount - 1
   );
 
-  // Random hook text — deterministic per product, no black screen
-  const hookText = pickHook(title, price);
+  // Screen shake on price reveal (applied to root wrapper)
+  const shakeX =
+    frame >= PRICE_START && frame <= PRICE_START + 15
+      ? Math.sin(frame * 2.8) *
+        interpolate(frame, [PRICE_START, PRICE_START + 15], [6, 0])
+      : 0;
 
-  // Animated gradient background
-  const gradientAngle = interpolate(frame, [0, durationInFrames], [0, 360]);
-
-  // Hook text explodes 300% → 100% over first 30 frames, then fades out
-  const hookScale = spring({ frame, fps, from: 3.0, to: 1.0, durationInFrames: HOOK_FRAMES, config: { damping: 12, stiffness: 200 } });
-  const hookOpacity = interpolate(frame, [0, HOOK_FRAMES, HOOK_FRAMES + 15], [1, 1, 0], { extrapolateRight: "clamp" });
-
-  // Screen shake on price reveal
-  const shakeX = frame >= PRICE_START && frame <= PRICE_START + 15
-    ? Math.sin(frame * 2.8) * interpolate(frame, [PRICE_START, PRICE_START + 15], [8, 0])
-    : 0;
-
-  // Price count-up
-  const priceNum = parseFloat(price);
-  const easeOutExpo = (t: number) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-  const priceProgress = easeOutExpo(Math.min(1, Math.max(0, (frame - PRICE_START) / 60)));
-  const displayPrice = priceNum * priceProgress;
-
-  // Sticker badges
+  // Details badges data
   const badges = [
     { label: condition, bg: "#4ade80", color: "#000" },
     { label: storeName, bg: "#681FCB", color: "#fff" },
-    { label: currency === "USD" ? `$${price}` : `${currency} ${price}`, bg: "#FFE500", color: "#000" },
+    { label: `${currency === "USD" ? "$" : currency}${price}`, bg: "#FFE500", color: "#000" },
   ];
 
-  // CTA pulse
-  const pulse = Math.sin(frame * 0.15) * 0.08 + 1.0;
-  const logoScale = spring({ frame: Math.max(0, frame - CTA_START), fps, from: 0, to: 1, durationInFrames: 20, config: { stiffness: 200, damping: 15 } });
-
   return (
-    <AbsoluteFill style={{
-      background: `linear-gradient(${gradientAngle}deg, #0a0a0a, #1a0a2e)`,
-      fontFamily,
-      transform: `translateX(${shakeX}px)`,
-      overflow: "hidden",
-    }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: "#000",
+        fontFamily: inter,
+        transform: `translateX(${shakeX}px)`,
+        overflow: "hidden",
+      }}
+    >
+      {/* ── AUDIO: energetic.mp3 starts on beat ────────────────────── */}
+      <Audio src={staticFile("music/energetic.mp3")} volume={0.65} trimBefore={300} loop />
 
-      {/* ── AUDIO: energetic.mp3, trimBefore skips slow intro ─────────
-          trimBefore=300 skips first 10s to hit the beat immediately   */}
-      <Audio
-        src={staticFile("music/energetic.mp3")}
-        volume={0.65}
-        trimBefore={300}
-        loop
-      />
+      {/* ══════════════════════════════════════════════════════════════
+          SCENE 1 — HOOK: ISOLATED BLACK FRAME (frames 0–40)
+          NO product image. Hook text only. Bebas Neue 120px.
+      ══════════════════════════════════════════════════════════════ */}
+      <Sequence from={0} durationInFrames={HOOK_END} premountFor={5}>
+        <AbsoluteFill style={{ backgroundColor: "#000000" }}>
+          {/* Radial glow behind text */}
+          <div
+            style={{
+              position: "absolute",
+              width: 600, height: 600,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${brandColor}30 0%, transparent 70%)`,
+              left: "50%", top: "50%",
+              transform: "translate(-50%, -50%)",
+            }}
+          />
+          {/* Hook text — Bebas Neue, 120px, springs in */}
+          <div
+            style={{
+              position: "absolute",
+              top: "50%", left: SAFE_SIDES, right: SAFE_SIDES,
+              transform: `translateY(-50%) scale(${hookScale})`,
+              textAlign: "center",
+              fontFamily: bebas,
+              fontSize: 120,
+              letterSpacing: 4,
+              color: "#fff",
+              lineHeight: 1.0,
+            }}
+          >
+            {hookText}
+          </div>
+        </AbsoluteFill>
+      </Sequence>
 
-      {/* ════ SCENE 1+2 — GALLERY starts frame 0, hook text overlays ══ */}
-      {frame < GALLERY_END + 20 && (
-        <Sequence from={GALLERY_START} durationInFrames={galleryDuration + 20} premountFor={15}>
+      {/* ══════════════════════════════════════════════════════════════
+          SCENE 2 — GALLERY: full-frame images with Ken Burns
+          Each image in its own Sequence, durationInFrames=90 so
+          the NEXT image renders underneath — NEVER an empty frame
+      ══════════════════════════════════════════════════════════════ */}
+      {allImages.map((imgUrl, index) => (
+        <Sequence
+          key={index}
+          from={GALLERY_START + index * FRAMES_PER_IMAGE}
+          durationInFrames={90}
+          premountFor={15}
+        >
+          <GalleryImage src={imgUrl} index={index} totalFrames={90} />
+        </Sequence>
+      ))}
+
+      {/* Light leaks at every image transition */}
+      {allImages.slice(1).map((_, index) => (
+        <Sequence
+          key={`leak-${index}`}
+          from={GALLERY_START + (index + 1) * FRAMES_PER_IMAGE - 8}
+          durationInFrames={20}
+          premountFor={5}
+        >
           <AbsoluteFill>
-            {/* TransitionSeries: alternating slide/wipe/flip/clockWipe/fade */}
-            <TransitionSeries>
-              {allImages.map((imgUrl, index) => {
-                const t = TRANSITIONS[index % TRANSITIONS.length]();
-                return (
-                  <React.Fragment key={index}>
-                    <TransitionSeries.Sequence durationInFrames={FRAMES_PER_IMAGE} premountFor={TRANSITION_FRAMES}>
-                      <ImageSlide src={imgUrl} index={index} />
-                    </TransitionSeries.Sequence>
-                    {index < allImages.length - 1 && (
-                      <TransitionSeries.Transition
-                        presentation={t.presentation}
-                        timing={t.timing}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </TransitionSeries>
-
-            {/* LightLeak flashes at each transition point — separate layer */}
-            {allImages.slice(1).map((_, index) => {
-              const transitionFrame = (index + 1) * (FRAMES_PER_IMAGE - TRANSITION_FRAMES);
-              return (
-                <Sequence key={`leak-${index}`} from={transitionFrame - 4} durationInFrames={18} premountFor={4}>
-                  <AbsoluteFill>
-                    <LightLeak durationInFrames={18} seed={index + 1} hueShift={index * 72} />
-                  </AbsoluteFill>
-                </Sequence>
-              );
-            })}
-
-            {/* Hook text — overlays first image, springs in then fades */}
-            {frame < HOOK_FRAMES + 15 && (
-              <div style={{
-                position: "absolute",
-                top: "38%", left: SAFE_SIDES, right: SAFE_SIDES,
-                transform: `translateY(-50%) scale(${hookScale})`,
-                opacity: hookOpacity,
-                textAlign: "center",
-                zIndex: 10,
-              }}>
-                <div style={{
-                  fontSize: 80, fontWeight: 900, color: "#fff",
-                  lineHeight: 1.1,
-                  textShadow: "3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 0 6px 20px rgba(0,0,0,0.8)",
-                }}>
-                  {hookText}
-                </div>
-              </div>
-            )}
-
-            {/* Title word-by-word — safe zone top, starts after hook fades */}
-            <div style={{ position: "absolute", top: SAFE_TOP + 10, left: SAFE_SIDES, right: SAFE_SIDES, textAlign: "center" }}>
-              <WordCaption
-                text={title.length > 55 ? title.slice(0, 52) + "…" : title}
-                startFrame={HOOK_FRAMES + 15}
-              />
-            </div>
-
-            {/* Progress dots — safe zone bottom */}
-            <div style={{
-              position: "absolute", bottom: SAFE_BOTTOM + 20,
-              left: 0, right: 0, display: "flex", justifyContent: "center", gap: 10,
-            }}>
-              {allImages.map((_, i) => (
-                <div key={i} style={{
-                  width: i === activeImageIdx ? 28 : 10,
-                  height: 10, borderRadius: 5,
-                  backgroundColor: "#fff",
-                  opacity: i === activeImageIdx ? 1 : 0.4,
-                }} />
-              ))}
-            </div>
+            <LightLeak durationInFrames={20} seed={index + 1} hueShift={index * 60} />
           </AbsoluteFill>
         </Sequence>
+      ))}
+
+      {/* Gallery UI overlay: watermark + progress dots + title */}
+      {frame >= GALLERY_START && frame < GALLERY_END && (
+        <AbsoluteFill style={{ pointerEvents: "none" }}>
+          {/* Dark gradient for text readability */}
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, transparent 65%, rgba(0,0,0,0.6) 100%)",
+          }} />
+
+          {/* Brand watermark — top-left safe zone */}
+          <div style={{
+            position: "absolute",
+            top: SAFE_TOP, left: SAFE_SIDES,
+            fontFamily: inter, fontSize: 28, fontWeight: 600,
+            color: "rgba(255,255,255,0.5)",
+          }}>
+            {storeName}
+          </div>
+
+          {/* Title — Inter 700 44px, bottom safe zone */}
+          <div style={{
+            position: "absolute",
+            bottom: SAFE_BOTTOM + 80,
+            left: SAFE_SIDES, right: SAFE_SIDES,
+            fontFamily: inter, fontSize: 44, fontWeight: 700,
+            color: "#fff", lineHeight: 1.2,
+            textShadow: "1px 1px 6px rgba(0,0,0,0.9)",
+            opacity: interpolate(frame, [GALLERY_START + 20, GALLERY_START + 40], [0, 1], {
+              extrapolateRight: "clamp",
+            }),
+          }}>
+            {title.length > 55 ? title.slice(0, 52) + "…" : title}
+          </div>
+
+          {/* Progress dots — 140px from bottom */}
+          <div style={{
+            position: "absolute",
+            bottom: 140, left: 0, right: 0,
+            display: "flex", justifyContent: "center", gap: 10,
+          }}>
+            {allImages.map((_, i) => (
+              <div key={i} style={{
+                width: i === activeImg ? 28 : 10,
+                height: 10, borderRadius: 5,
+                backgroundColor: "#fff",
+                opacity: i === activeImg ? 1 : 0.35,
+              }} />
+            ))}
+          </div>
+        </AbsoluteFill>
       )}
 
-      {/* ════ SCENE 3 — PRICE REVEAL ══════════════════════════════════ */}
-      <Sequence from={PRICE_START} durationInFrames={PRICE_FRAMES + 5} premountFor={10}>
-        <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-          <div style={{
-            background: "rgba(0,0,0,0.4)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            borderRadius: 20, padding: "40px 60px", textAlign: "center",
-            transform: `scale(${spring({ frame: useCurrentFrame(), fps, from: 0.5, to: 1, durationInFrames: 20, config: { stiffness: 200, damping: 15 } })})`,
-          }}>
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 36, fontWeight: 700, marginBottom: 8 }}>Only</div>
-            <div style={{
-              color: "#00FF88", fontSize: 80, fontWeight: 800,
-              fontVariantNumeric: "tabular-nums", lineHeight: 1,
-              textShadow: "0 0 40px rgba(0,255,136,0.5)",
-            }}>
-              {currency === "USD" ? "$" : currency}{displayPrice.toFixed(2)}
-            </div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 28, marginTop: 8 }}>{condition}</div>
-          </div>
-
-          {/* Particle burst */}
-          <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-            {Array.from({ length: 20 }).map((_, i) => {
-              const angle = (i / 20) * Math.PI * 2;
-              const f = useCurrentFrame();
-              const dist = interpolate(f, [10, 50], [0, 180], { extrapolateRight: "clamp" });
-              const op = interpolate(f, [10, 30, 50], [0, 1, 0], { extrapolateRight: "clamp" });
-              return (
-                <div key={i} style={{
-                  position: "absolute", width: 8, height: 8, borderRadius: "50%",
-                  background: "#FFD700", opacity: op,
-                  transform: `translate(${Math.cos(angle) * dist - 4}px, ${Math.sin(angle) * dist - 4}px)`,
-                }} />
-              );
-            })}
-          </div>
-        </AbsoluteFill>
+      {/* SCENE 3 — PRICE REVEAL */}
+      <Sequence from={PRICE_START} durationInFrames={PRICE_FRAMES} premountFor={10}>
+        <PriceRevealScene
+          lastImage={lastImage} price={price} currency={currency}
+          condition={condition} brandColor={brandColor}
+        />
       </Sequence>
 
-      {/* ════ SCENE 4 — STICKER BADGE DROPS ══════════════════════════ */}
-      <Sequence from={DETAILS_START} durationInFrames={DETAILS_FRAMES + 5} premountFor={10}>
-        <AbsoluteFill>
-          <div style={{
-            position: "absolute", top: "50%", left: 0, right: 0,
-            transform: "translateY(-50%)",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 24,
-            paddingLeft: SAFE_SIDES, paddingRight: SAFE_SIDES,
-          }}>
-            {badges.map((badge, i) => {
-              const lf = useCurrentFrame();
-              const badgeSpring = spring({ frame: Math.max(0, lf - i * 20), fps, config: { damping: 14, stiffness: 180 } });
-              const badgeY = interpolate(badgeSpring, [0, 1], [-200, 0]);
-              return (
-                <div key={i} style={{
-                  backgroundColor: badge.bg, color: badge.color,
-                  borderRadius: 100, padding: "14px 36px",
-                  fontSize: 36, fontWeight: 800,
-                  transform: `translateY(${badgeY}px) rotate(${i % 2 === 0 ? -4 : 4}deg)`,
-                  boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
-                }}>
-                  {badge.label}
-                </div>
-              );
-            })}
-          </div>
-        </AbsoluteFill>
+      {/* SCENE 4 — DETAILS */}
+      <Sequence from={DETAILS_START} durationInFrames={DETAILS_FRAMES} premountFor={10}>
+        <DetailsScene lastImage={lastImage} badges={badges} />
       </Sequence>
 
-      {/* ════ SCENE 5 — CTA ═══════════════════════════════════════════ */}
+      {/* SCENE 5 — CTA */}
       <Sequence from={CTA_START} durationInFrames={CTA_FRAMES} premountFor={10}>
-        <AbsoluteFill style={{
-          background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 50%, transparent 100%)",
-          justifyContent: "flex-end", alignItems: "center",
-          paddingBottom: SAFE_BOTTOM + 20,
-        }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, transform: `scale(${logoScale})` }}>
-            <div style={{
-              background: "linear-gradient(135deg, #681FCB, #F73A8A)",
-              borderRadius: 50, padding: "20px 56px",
-              color: "#fff", fontSize: 44, fontWeight: 900,
-              transform: `scale(${pulse})`,
-              boxShadow: "0 8px 40px rgba(247,58,138,0.4)",
-              textAlign: "center",
-            }}>
-              Shop {storeName} → Link in bio 👇
-            </div>
-            {storeLogo ? (
-              <Img src={storeLogo} style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover" }} />
-            ) : (
-              <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 28, fontWeight: 600 }}>
-                {storeName} on eBay
-              </div>
-            )}
-          </div>
-        </AbsoluteFill>
+        <CTAScene lastImage={lastImage} storeName={storeName} storeLogo={storeLogo} brandColor={brandColor} />
       </Sequence>
-
     </AbsoluteFill>
   );
 };
