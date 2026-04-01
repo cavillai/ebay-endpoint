@@ -33,7 +33,7 @@ const TEMPLATE_DEFAULTS = {
   brand: "Sample Brand",
 };
 
-const IG_DIMS = { width: 1080, height: 1080, fps: 30, durationInFrames: 450 };
+const IG_DIMS = { width: 1080, height: 1920, fps: 30, durationInFrames: 450 };
 const TT_DIMS = { width: 1080, height: 1920, fps: 30, durationInFrames: 450 };
 
 export const RemotionRoot: React.FC = () => {
