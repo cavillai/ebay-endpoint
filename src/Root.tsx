@@ -4,9 +4,42 @@ import { myCompSchema, PreviewCard } from "./PreviewCard";
 import { ProductShowcase, productShowcaseSchema } from "./ProductShowcase";
 import { ProductCarousel, productCarouselSchema } from "./ProductCarousel";
 
+// ─── Instagram Templates ──────────────────────────────────────────────────
+import { CleanProductReveal }  from "./templates/instagram/CleanProductReveal";
+import { GoldPriceSlam }       from "./templates/instagram/GoldPriceSlam";
+import { ConditionSpotlight }  from "./templates/instagram/ConditionSpotlight";
+import { PolaroidGallery }     from "./templates/instagram/PolaroidGallery";
+import { MinimalLuxury }       from "./templates/instagram/MinimalLuxury";
+import { SpecsTicker }         from "./templates/instagram/SpecsTicker";
+import { ThreePanelStory }     from "./templates/instagram/ThreePanelStory";
+import { ZoomPunch }           from "./templates/instagram/ZoomPunch";
+import { NeonNightMarket }     from "./templates/instagram/NeonNightMarket";
+import { SwipeCarouselSim }    from "./templates/instagram/SwipeCarouselSim";
+
+// ─── TikTok Templates ────────────────────────────────────────────────────
+import { HookWordByWord }      from "./templates/tiktok/HookWordByWord";
+import { POVReseller }         from "./templates/tiktok/POVReseller";
+import { RapidFireFive }       from "./templates/tiktok/RapidFireFive";
+import { CommentReplyBait }    from "./templates/tiktok/CommentReplyBait";
+import { UrgencyCountdown }    from "./templates/tiktok/UrgencyCountdown";
+
+const TEMPLATE_DEFAULTS = {
+  storeName: "My eBay Store",
+  title: "Sample Product — Great Deal",
+  price: "29.99",
+  currency: "USD",
+  imageUrl: "https://via.placeholder.com/800x800",
+  condition: "Like New",
+  brand: "Sample Brand",
+};
+
+const IG_DIMS = { width: 1080, height: 1080, fps: 30, durationInFrames: 450 };
+const TT_DIMS = { width: 1080, height: 1920, fps: 30, durationInFrames: 450 };
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      {/* ─── Legacy Compositions ──────────────────────────────────────── */}
       <Still
         id="PreviewCard"
         component={PreviewCard}
@@ -19,81 +52,35 @@ export const RemotionRoot: React.FC = () => {
           color: "#0B84F3" as const,
         }}
       />
-
-      {/* Single product vertical showcase */}
-      <Composition
-        id="ProductShowcase"
-        component={ProductShowcase}
-        width={1080}
-        height={1920}
-        fps={30}
-        durationInFrames={240}
+      <Composition id="ProductShowcase" component={ProductShowcase}
+        width={1080} height={1920} fps={30} durationInFrames={240}
         schema={productShowcaseSchema}
-        defaultProps={{
-          title: "Sample Product Title — Great condition item for sale",
-          price: "29.99",
-          currency: "USD",
-          imageUrl: "",
-          condition: "New",
-          sellerUsername: "top_seller",
-          feedbackScore: 1200,
-          feedbackPercentage: "99.8%",
-          shippingCost: "Free",
-          shippingType: "Standard Shipping",
-          rating: 4.5,
-          reviewCount: 342,
-        }}
+        defaultProps={{ title: "Sample Product", price: "29.99", currency: "USD", imageUrl: "", condition: "New", sellerUsername: "seller", feedbackScore: 100, feedbackPercentage: "99%", shippingCost: "Free", shippingType: "Standard" }}
+      />
+      <Composition id="ProductCarousel" component={ProductCarousel}
+        width={1080} height={1920} fps={30} durationInFrames={270}
+        schema={productCarouselSchema}
+        defaultProps={{ storeName: "My Store", framesPerProduct: 90, products: [] }}
       />
 
-      {/* Multi-product carousel */}
-      <Composition
-        id="ProductCarousel"
-        component={ProductCarousel}
-        width={1080}
-        height={1920}
-        fps={30}
-        durationInFrames={270}
-        schema={productCarouselSchema}
-        defaultProps={{
-          storeName: "My eBay Store",
-          framesPerProduct: 90,
-          products: [
-            {
-              itemId: "1",
-              title: "First Sample Product — Amazing deal",
-              price: "19.99",
-              currency: "USD",
-              imageUrl: "",
-              condition: "New",
-              sellerUsername: "seller_one",
-              feedbackPercentage: "99.5%",
-              shippingCost: "Free",
-            },
-            {
-              itemId: "2",
-              title: "Second Sample Product — Limited time offer",
-              price: "49.99",
-              currency: "USD",
-              imageUrl: "",
-              condition: "Like New",
-              sellerUsername: "seller_two",
-              feedbackPercentage: "98.9%",
-              shippingCost: "3.99",
-            },
-            {
-              itemId: "3",
-              title: "Third Sample Product — Best seller",
-              price: "9.99",
-              currency: "USD",
-              imageUrl: "",
-              condition: "Good",
-              sellerUsername: "seller_three",
-              feedbackPercentage: "97.2%",
-              shippingCost: "Free",
-            },
-          ],
-        }}
-      />
+      {/* ─── Instagram Templates ──────────────────────────────────────── */}
+      <Composition id="CleanProductReveal"  component={CleanProductReveal  as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="GoldPriceSlam"       component={GoldPriceSlam       as any} {...IG_DIMS} defaultProps={{ ...TEMPLATE_DEFAULTS, originalPrice: "89.99" }} />
+      <Composition id="ConditionSpotlight"  component={ConditionSpotlight  as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="PolaroidGallery"     component={PolaroidGallery     as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="MinimalLuxury"       component={MinimalLuxury       as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="SpecsTicker"         component={SpecsTicker         as any} {...IG_DIMS} defaultProps={{ ...TEMPLATE_DEFAULTS, itemSpecifics: { Color: "Black", Size: "M", Material: "Cotton" } }} />
+      <Composition id="ThreePanelStory"     component={ThreePanelStory     as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="ZoomPunch"           component={ZoomPunch           as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="NeonNightMarket"     component={NeonNightMarket     as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="SwipeCarouselSim"    component={SwipeCarouselSim    as any} {...IG_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+
+      {/* ─── TikTok Templates ─────────────────────────────────────────── */}
+      <Composition id="HookWordByWord"      component={HookWordByWord      as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="POVReseller"         component={POVReseller         as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="RapidFireFive"       component={RapidFireFive       as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="CommentReplyBait"    component={CommentReplyBait    as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="UrgencyCountdown"    component={UrgencyCountdown    as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
     </>
   );
 };

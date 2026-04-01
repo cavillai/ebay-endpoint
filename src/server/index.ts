@@ -26,6 +26,7 @@ import { searchVideoSchema, itemVideoSchema } from "./ebay-validation";
 import { renderMedia, selectComposition as selectComp } from "@remotion/renderer";
 import { generateVideoScript, generateScriptForStore, Platform } from "./script-generator";
 import { z } from "zod";
+import { TEMPLATE_REGISTRY, TemplateName, TEMPLATE_NAMES } from "../templates/registry";
 
 dotenv.config({ quiet: true });
 
@@ -133,6 +134,90 @@ app.get("/health", (req, res) => {
     },
   });
 });
+
+// ─── Template Library Endpoints ─────────────────────────────────────────────
+
+const templateVideoSchema = z.object({
+  template: z.string(),
+  keyword: z.string().optional(),
+  storeName: z.string().optional(),
+  itemId: z.string().optional(),
+  platform: z.enum(["tiktok", "instagram"]).optional(),
+  format: z.enum(["mp4", "png"]).default("mp4"),
+});
+
+// GET /templates — list all available templates
+app.get("/templates", (req, res) => {
+  const list = TEMPLATE_NAMES.map((name) => ({
+    name,
+    ...TEMPLATE_REGISTRY[name],
+  }));
+  res.json({ templates: list, total: list.length });
+});
+
+// GET /generate-video/template — render any named template with live eBay data
+app.get(
+  "/generate-video/template",
+  handler(async (req, res) => {
+    const parsed = templateVideoSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid parameters", details: parsed.error.flatten() });
+      return;
+    }
+
+    const { template, keyword, storeName, itemId, format } = parsed.data;
+
+    if (!TEMPLATE_NAMES.includes(template as TemplateName)) {
+      res.status(400).json({
+        error: `Unknown template "${template}"`,
+        availableTemplates: TEMPLATE_NAMES,
+      });
+      return;
+    }
+
+    const tmpl = TEMPLATE_REGISTRY[template as TemplateName];
+
+    // Fetch product data
+    let product;
+    if (itemId) {
+      product = await getItem(itemId);
+    } else if (keyword) {
+      const result = storeName
+        ? await searchItems(storeName, keyword, 5)
+        : await searchItemsByKeyword(keyword, 5);
+      if (result.items.length === 0) {
+        res.status(404).json({ error: "No products found" });
+        return;
+      }
+      product = result.items[0];
+    } else {
+      res.status(400).json({ error: "Provide either keyword or itemId" });
+      return;
+    }
+
+    const inputProps = {
+      storeName: storeName || product.seller.username,
+      title: product.title,
+      price: product.price,
+      currency: product.currency,
+      imageUrl: product.imageUrl,
+      additionalImages: [],
+      condition: product.condition,
+      brand: undefined,
+      shippingCost: product.shipping.cost,
+      shippingType: product.shipping.type,
+      sellerUsername: product.seller.username,
+      feedbackScore: product.seller.feedbackScore,
+      feedbackPercentage: product.seller.feedbackPercentage,
+      buyingOptions: [],
+    };
+
+    const ts = new Date().toISOString();
+    console.log(`[${ts}] Rendering template "${template}" for "${product.title.slice(0, 40)}"`);
+
+    await renderAndSend(res, tmpl.id, inputProps, format);
+  })
+);
 
 // ─── eBay Script Generation Endpoints ───────────────────────────────────────
 
