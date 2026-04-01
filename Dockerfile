@@ -3,19 +3,15 @@
 
 FROM node:22-bookworm-slim
 
-RUN apt-get update && apt-get install -y \
-  chromium-browser \
+RUN apt-get update && apt-get install -y --no-install-recommends \
   libnss3 \
   libxss1 \
-  libappindicator3-1 \
-  libindicator7 \
   libasound2 \
   libatk-bridge2.0-0 \
   libatspi2.0-0 \
   libcups2 \
   libdbus-1-3 \
   libfontconfig1 \
-  libgconf-2-4 \
   libgdk-pixbuf2.0-0 \
   libglib2.0-0 \
   libgtk-3-0 \
@@ -27,13 +23,12 @@ RUN apt-get update && apt-get install -y \
   libxdamage1 \
   libxext6 \
   libxfixes3 \
-  libxfont2 \
   libxrandr2 \
   libxrender1 \
-  libxss1 \
   libxtst6 \
   fonts-liberation \
   xdg-utils \
+  ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir app
