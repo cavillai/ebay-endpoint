@@ -16,7 +16,9 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
+  staticFile,
 } from "remotion";
+import { Audio } from "@remotion/media";
 import { LightLeak } from "@remotion/light-leaks";
 import { loadFont } from "@remotion/google-fonts/Inter";
 import { TemplateProps } from "../shared/types";
@@ -212,10 +214,8 @@ export const ViralHookMachine: React.FC<TemplateProps> = ({
         overflow: "hidden",
       }}
     >
-      {/* ── AUDIO (uncomment when public/music/beat.mp3 exists) ──────── */}
-      {/*
-      <Audio src={staticFile("music/beat.mp3")} volume={musicVolume} loop />
-      */}
+      {/* ── AUDIO: 65% volume, loops for full composition duration ────── */}
+      <Audio src={staticFile("music/beat.mp3")} volume={0.65} loop />
 
       {/* ════════════════════════════════════════════════════════════════
           SCENE 1 — HOOK (frames 0–30)
