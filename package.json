@@ -40,7 +40,7 @@
     "typescript": "5.9.3"
   },
   "scripts": {
-    "start": "node dist/server/index.js",
+    "start": "node dist/src/server/index.js",
     "make": "tsc -d",
     "dev": "remotion studio",
     "build": "remotion bundle",
@@ -51,6 +51,7 @@
     "setup-music": "node -r dotenv/config -e \"require('./dist/server/music-downloader').downloadMusicTracks(process.env.PIXABAY_API_KEY).then(r=>console.log(r)).catch(console.error)\"",
     "setup-music:force": "node -r dotenv/config -e \"require('./dist/server/music-downloader').downloadMusicTracks(process.env.PIXABAY_API_KEY, true).then(r=>console.log(r)).catch(console.error)\"",
     "render:ab": "node -r dotenv/config dist/scripts/render-ab-hooks.js",
-    "render:batch": "node dist/scripts/batch-render.js"
+    "render:batch": "node dist/scripts/batch-render.js",
+    "setup-music": "node -r dotenv/config dist/src/server/music-downloader.js"
   }
 }

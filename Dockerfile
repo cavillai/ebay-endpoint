@@ -49,4 +49,4 @@ USER pptruser
 
 EXPOSE 8000
 
-CMD ["npm", "start"] 
+CMD ["node", "dist/src/server/index.js"] 
