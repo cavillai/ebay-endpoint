@@ -199,6 +199,7 @@ app.get(
       price: product.price,
       currency: product.currency,
       imageUrl: product.imageUrl,
+      additionalImages: product.additionalImages || [],
       condition: product.condition,
       shippingCost: product.shipping.cost,
       shippingType: product.shipping.type,

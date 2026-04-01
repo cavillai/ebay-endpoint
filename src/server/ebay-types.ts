@@ -4,6 +4,7 @@ export interface EBayProduct {
   price: string;
   currency: string;
   imageUrl: string;
+  additionalImages: string[];
   condition: string;
   seller: {
     username: string;

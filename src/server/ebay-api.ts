@@ -121,8 +121,10 @@ function transformItem(item: any): EBayProduct {
     title: item.title || "No title",
     price: item.price?.value || item.currentBidPrice?.value || "0.00",
     currency: item.price?.currency || "USD",
-    imageUrl:
-      item.image?.imageUrl || item.additionalImages?.[0]?.imageUrl || "",
+    imageUrl: item.image?.imageUrl || "",
+    additionalImages: (item.additionalImages ?? [])
+      .map((img: any) => img.imageUrl)
+      .filter(Boolean),
     condition: item.condition || "Not specified",
     seller: {
       username: item.seller?.username || "unknown",
