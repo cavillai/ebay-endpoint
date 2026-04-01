@@ -146,6 +146,46 @@ const templateVideoSchema = z.object({
   format: z.enum(["mp4", "png"]).default("mp4"),
 });
 
+// GET /product-data — fetch eBay product as Remotion-ready JSON props (for local rendering)
+app.get(
+  "/product-data",
+  handler(async (req, res) => {
+    const parsed = templateVideoSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid parameters", details: parsed.error.flatten() });
+      return;
+    }
+    const { template, keyword, storeName, itemId } = parsed.data;
+    let product;
+    if (itemId) {
+      product = await getItem(itemId);
+    } else if (keyword) {
+      const result = storeName
+        ? await searchItems(storeName, keyword, 1)
+        : await searchItemsByKeyword(keyword, 1);
+      if (result.items.length === 0) { res.status(404).json({ error: "No products found" }); return; }
+      product = result.items[0];
+    } else {
+      res.status(400).json({ error: "Provide keyword or itemId" }); return;
+    }
+    const tmpl = TEMPLATE_REGISTRY[template as TemplateName];
+    const props = {
+      storeName: storeName || product.seller.username,
+      title: product.title,
+      price: product.price,
+      currency: product.currency,
+      imageUrl: product.imageUrl,
+      condition: product.condition,
+      shippingCost: product.shipping.cost,
+      shippingType: product.shipping.type,
+      sellerUsername: product.seller.username,
+      feedbackScore: product.seller.feedbackScore,
+      feedbackPercentage: product.seller.feedbackPercentage,
+    };
+    res.json({ template: tmpl?.id || template, props });
+  })
+);
+
 // GET /templates — list all available templates
 app.get("/templates", (req, res) => {
   const list = TEMPLATE_NAMES.map((name) => ({
