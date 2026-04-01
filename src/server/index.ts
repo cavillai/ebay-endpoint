@@ -21,6 +21,9 @@ import {
   handleAccountDeletionNotification,
   getNotificationStats,
 } from "./ebay-notifications";
+import { searchItems, searchItemsByKeyword, getItem } from "./ebay-api";
+import { searchVideoSchema, itemVideoSchema } from "./ebay-validation";
+import { renderMedia, selectComposition as selectComp } from "@remotion/renderer";
 
 dotenv.config({ quiet: true });
 
@@ -128,6 +131,153 @@ app.get("/health", (req, res) => {
     },
   });
 });
+
+// ─── eBay Video Generation Endpoints ────────────────────────────────────────
+
+// Helper: render a video or still to buffer and send it
+async function renderAndSend(
+  res: any,
+  compName: string,
+  inputProps: Record<string, unknown>,
+  format: "mp4" | "png"
+) {
+  const webpackBundle = await webpackBundling;
+  const output = path.join(await tmpDir, `${Date.now()}-${compName}.${format}`);
+
+  if (format === "png") {
+    const composition = await selectComposition({
+      id: compName,
+      inputProps,
+      serveUrl: webpackBundle,
+    });
+    await renderStill({
+      composition,
+      serveUrl: webpackBundle,
+      output,
+      inputProps,
+      imageFormat: "png",
+    });
+    res.set("content-type", "image/png");
+  } else {
+    const composition = await selectComp({
+      id: compName,
+      inputProps,
+      serveUrl: webpackBundle,
+    });
+    await renderMedia({
+      composition,
+      serveUrl: webpackBundle,
+      codec: "h264",
+      outputLocation: output,
+      inputProps,
+    });
+    res.set("content-type", "video/mp4");
+    res.set("Content-Disposition", `attachment; filename="${compName}.mp4"`);
+  }
+
+  await sendFile(res, fs.createReadStream(output));
+  await fs.promises.unlink(output);
+}
+
+// GET /generate-video/search — search eBay products & generate video
+app.get(
+  "/generate-video/search",
+  handler(async (req, res) => {
+    const parsed = searchVideoSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid parameters", details: parsed.error.flatten() });
+      return;
+    }
+
+    const { storeName, keyword, style, itemCount, format } = parsed.data;
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Generating ${style} video — keyword: "${keyword}" store: "${storeName || "all"}"`);
+
+    // Fetch products from eBay
+    const result = storeName
+      ? await searchItems(storeName, keyword, itemCount)
+      : await searchItemsByKeyword(keyword, itemCount);
+
+    if (result.items.length === 0) {
+      res.status(404).json({ error: "No products found for the given query" });
+      return;
+    }
+
+    if (style === "showcase") {
+      // Single product showcase (first result)
+      const product = result.items[0];
+      const inputProps = {
+        title: product.title,
+        price: product.price,
+        currency: product.currency,
+        imageUrl: product.imageUrl,
+        condition: product.condition,
+        sellerUsername: product.seller.username,
+        feedbackScore: product.seller.feedbackScore,
+        feedbackPercentage: product.seller.feedbackPercentage,
+        shippingCost: product.shipping.cost,
+        shippingType: product.shipping.type,
+        rating: product.rating,
+        reviewCount: product.reviewCount,
+      };
+      await renderAndSend(res, "ProductShowcase", inputProps, format);
+    } else {
+      // Carousel of products
+      const products = result.items.map((p) => ({
+        itemId: p.itemId,
+        title: p.title,
+        price: p.price,
+        currency: p.currency,
+        imageUrl: p.imageUrl,
+        condition: p.condition,
+        sellerUsername: p.seller.username,
+        feedbackPercentage: p.seller.feedbackPercentage,
+        shippingCost: p.shipping.cost,
+      }));
+      const inputProps = {
+        products,
+        storeName: storeName || keyword,
+        framesPerProduct: 90,
+      };
+      await renderAndSend(res, "ProductCarousel", inputProps, format);
+    }
+  })
+);
+
+// GET /generate-video/item — generate video for a specific eBay item ID
+app.get(
+  "/generate-video/item",
+  handler(async (req, res) => {
+    const parsed = itemVideoSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid parameters", details: parsed.error.flatten() });
+      return;
+    }
+
+    const { itemId, format } = parsed.data;
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Generating showcase video for item: ${itemId}`);
+
+    const product = await getItem(itemId);
+
+    const inputProps = {
+      title: product.title,
+      price: product.price,
+      currency: product.currency,
+      imageUrl: product.imageUrl,
+      condition: product.condition,
+      sellerUsername: product.seller.username,
+      feedbackScore: product.seller.feedbackScore,
+      feedbackPercentage: product.seller.feedbackPercentage,
+      shippingCost: product.shipping.cost,
+      shippingType: product.shipping.type,
+      rating: product.rating,
+      reviewCount: product.reviewCount,
+    };
+
+    await renderAndSend(res, "ProductShowcase", inputProps, format);
+  })
+);
 
 // The image is rendered when /[CompositionName].[imageformat] is called.
 // Props are passed via query string.
