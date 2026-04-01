@@ -3,7 +3,7 @@
     "target": "ES2018",
     "module": "commonjs",
     "jsx": "react-jsx",
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
     "strict": true,
     "lib": ["es2015"],
@@ -13,5 +13,5 @@
     "noUnusedLocals": true
   },
   "exclude": ["remotion.config.ts"],
-  "include": ["src"]
+  "include": ["src", "scripts"]
 }
