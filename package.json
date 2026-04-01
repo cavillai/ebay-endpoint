@@ -48,7 +48,6 @@
     "upgrade": "remotion upgrade",
     "server": "bun src/server/index.ts",
     "lint": "eslint src && tsc",
-    "setup-music": "node -r dotenv/config -e \"require('./dist/server/music-downloader').downloadMusicTracks(process.env.PIXABAY_API_KEY).then(r=>console.log(r)).catch(console.error)\"",
     "setup-music:force": "node -r dotenv/config -e \"require('./dist/server/music-downloader').downloadMusicTracks(process.env.PIXABAY_API_KEY, true).then(r=>console.log(r)).catch(console.error)\"",
     "render:ab": "node -r dotenv/config dist/scripts/render-ab-hooks.js",
     "render:batch": "node dist/scripts/batch-render.js",
