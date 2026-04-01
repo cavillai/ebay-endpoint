@@ -40,11 +40,32 @@ const SAFE_TOP = 150;
 const SAFE_BOTTOM = 170;
 const SAFE_SIDES = 60;
 const FRAMES_PER_IMAGE = 75;
-const TRANSITION_FRAMES = 12; // overlap per transition
-const HOOK_FRAMES = 30;
+const TRANSITION_FRAMES = 12;
+const HOOK_FRAMES = 30; // hook overlays first image — no black screen
 const PRICE_FRAMES = 60;
 const DETAILS_FRAMES = 90;
 const CTA_FRAMES = 45;
+
+// ─── Viral hook pool — randomised per product ────────────────────────────
+const HOOK_POOL = [
+  "POV: You found this 👀",
+  "This shouldn't be $%PRICE% 😭",
+  "Stop scrolling‼️",
+  "How is this still here??",
+  "They priced this WRONG 🔥",
+  "You need to see this price",
+  "This won't last long 👀",
+  "Steal of the day 🤯",
+  "I can't believe this deal",
+  "Found it. You're welcome 😤",
+];
+
+/** Deterministic hook selection so the same product always gets the same hook */
+function pickHook(title: string, price: string): string {
+  const seed = title.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const hook = HOOK_POOL[seed % HOOK_POOL.length];
+  return hook.replace("%PRICE%", `$${price}`);
+}
 
 // Alternating transition presentations — each image cut feels different
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -136,26 +157,29 @@ export const ViralHookMachine: React.FC<TemplateProps> = ({
   const allImages = [imageUrl, ...additionalImages].filter(Boolean);
   const imageCount = allImages.length;
 
-  // Gallery duration accounts for transition overlaps
+  // Gallery starts at frame 0 — hook text overlays the first image
   const galleryDuration = imageCount * FRAMES_PER_IMAGE - (imageCount - 1) * TRANSITION_FRAMES;
-
-  const GALLERY_START = HOOK_FRAMES;
-  const GALLERY_END = GALLERY_START + galleryDuration;
+  const GALLERY_START = 0;
+  const GALLERY_END = galleryDuration;
   const PRICE_START = GALLERY_END;
   const DETAILS_START = PRICE_START + PRICE_FRAMES;
   const CTA_START = DETAILS_START + DETAILS_FRAMES;
 
   // Active image index for progress dots
   const activeImageIdx = Math.min(
-    Math.floor(Math.max(0, frame - GALLERY_START) / (FRAMES_PER_IMAGE - TRANSITION_FRAMES)),
+    Math.floor(frame / (FRAMES_PER_IMAGE - TRANSITION_FRAMES)),
     imageCount - 1
   );
+
+  // Random hook text — deterministic per product, no black screen
+  const hookText = pickHook(title, price);
 
   // Animated gradient background
   const gradientAngle = interpolate(frame, [0, durationInFrames], [0, 360]);
 
-  // Hook: "WAIT 👀" explodes 300% → 100%
+  // Hook text explodes 300% → 100% over first 30 frames, then fades out
   const hookScale = spring({ frame, fps, from: 3.0, to: 1.0, durationInFrames: HOOK_FRAMES, config: { damping: 12, stiffness: 200 } });
+  const hookOpacity = interpolate(frame, [0, HOOK_FRAMES, HOOK_FRAMES + 15], [1, 1, 0], { extrapolateRight: "clamp" });
 
   // Screen shake on price reveal
   const shakeX = frame >= PRICE_START && frame <= PRICE_START + 15
@@ -196,21 +220,8 @@ export const ViralHookMachine: React.FC<TemplateProps> = ({
         loop
       />
 
-      {/* ════ SCENE 1 — HOOK (frames 0–30) ════════════════════════════ */}
-      <Sequence from={0} durationInFrames={HOOK_FRAMES + 10} premountFor={5}>
-        <AbsoluteFill style={{ backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
-          <div style={{
-            fontSize: 96, fontWeight: 900, color: "#fff",
-            transform: `scale(${hookScale})`,
-            letterSpacing: -2, textAlign: "center",
-          }}>
-            WAIT 👀
-          </div>
-        </AbsoluteFill>
-      </Sequence>
-
-      {/* ════ SCENE 2 — IMAGE GALLERY with alternating transitions ═════ */}
-      {frame >= GALLERY_START && frame < GALLERY_END + 20 && (
+      {/* ════ SCENE 1+2 — GALLERY starts frame 0, hook text overlays ══ */}
+      {frame < GALLERY_END + 20 && (
         <Sequence from={GALLERY_START} durationInFrames={galleryDuration + 20} premountFor={15}>
           <AbsoluteFill>
             {/* TransitionSeries: alternating slide/wipe/flip/clockWipe/fade */}
@@ -245,11 +256,31 @@ export const ViralHookMachine: React.FC<TemplateProps> = ({
               );
             })}
 
-            {/* Title word-by-word — safe zone top */}
+            {/* Hook text — overlays first image, springs in then fades */}
+            {frame < HOOK_FRAMES + 15 && (
+              <div style={{
+                position: "absolute",
+                top: "38%", left: SAFE_SIDES, right: SAFE_SIDES,
+                transform: `translateY(-50%) scale(${hookScale})`,
+                opacity: hookOpacity,
+                textAlign: "center",
+                zIndex: 10,
+              }}>
+                <div style={{
+                  fontSize: 80, fontWeight: 900, color: "#fff",
+                  lineHeight: 1.1,
+                  textShadow: "3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 0 6px 20px rgba(0,0,0,0.8)",
+                }}>
+                  {hookText}
+                </div>
+              </div>
+            )}
+
+            {/* Title word-by-word — safe zone top, starts after hook fades */}
             <div style={{ position: "absolute", top: SAFE_TOP + 10, left: SAFE_SIDES, right: SAFE_SIDES, textAlign: "center" }}>
               <WordCaption
                 text={title.length > 55 ? title.slice(0, 52) + "…" : title}
-                startFrame={20}
+                startFrame={HOOK_FRAMES + 15}
               />
             </div>
 
