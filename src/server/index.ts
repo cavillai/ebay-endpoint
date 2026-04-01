@@ -201,13 +201,14 @@ app.get(
       imageUrl: product.imageUrl,
       additionalImages: product.additionalImages || [],
       condition: product.condition,
+      categoryName: product.categoryName,
       shippingCost: product.shipping.cost,
       shippingType: product.shipping.type,
       sellerUsername: product.seller.username,
       feedbackScore: product.seller.feedbackScore,
       feedbackPercentage: product.seller.feedbackPercentage,
     };
-    res.json({ template: tmpl?.id || template, props });
+    res.json({ template: tmpl?.id || template, itemId, props });
   })
 );
 

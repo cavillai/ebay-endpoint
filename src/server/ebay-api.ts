@@ -126,6 +126,7 @@ function transformItem(item: any): EBayProduct {
       .map((img: any) => img.imageUrl)
       .filter(Boolean),
     condition: item.condition || "Not specified",
+    categoryName: item.categories?.[0]?.categoryName || item.category?.categoryName,
     seller: {
       username: item.seller?.username || "unknown",
       feedbackScore: item.seller?.feedbackScore || 0,

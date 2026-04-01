@@ -6,6 +6,7 @@ export interface EBayProduct {
   imageUrl: string;
   additionalImages: string[];
   condition: string;
+  categoryName?: string;
   seller: {
     username: string;
     feedbackScore: number;
