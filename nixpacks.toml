@@ -1,0 +1,16 @@
+[phases.setup]
+nixPkgs = [
+  "pkgs.playwright-driver",
+  "pkgs.noto-fonts",
+  "pkgs.liberation_ttf",
+  "pkgs.pkg-config"
+]
+
+[phases.build]
+cmds = [
+  "npm install",
+  "npm run make"
+]
+
+[phases.start]
+cmd = "npm start"
