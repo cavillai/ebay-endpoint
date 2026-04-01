@@ -54,23 +54,40 @@ const PRICE_FRAMES = 60;
 const DETAILS_FRAMES = 45;
 const CTA_FRAMES = 45;
 
-// ── Viral hook pool — deterministic per product ───────────────────────────
-const HOOK_POOL = [
-  "POV: YOU FOUND THIS",
-  "HOW IS THIS STILL HERE",
-  "THEY PRICED THIS WRONG",
-  "STOP SCROLLING",
-  "STEAL OF THE DAY",
-  "THIS WON'T LAST LONG",
-  "YOU NEED TO SEE THIS",
-  "I CAN'T BELIEVE THIS DEAL",
-  "FOUND IT. YOU'RE WELCOME",
-  "THIS SHOULDN'T BE THIS CHEAP",
-];
+// ── A/B/C Hook variants — 3 emotional triggers per video ─────────────────
+export const HOOK_VARIANTS = {
+  // A — Curiosity (open loop)
+  a: [
+    "HOW IS THIS STILL HERE",
+    "POV: YOU FOUND THIS",
+    "WAIT BEFORE YOU SCROLL",
+    "YOU NEED TO SEE THIS PRICE",
+    "THIS SHOULDN'T EXIST",
+  ],
+  // B — Value shock
+  b: [
+    "THIS SHOULDN'T BE THIS CHEAP",
+    "THEY PRICED THIS WRONG",
+    "I CAN'T BELIEVE THIS DEAL",
+    "STEAL OF THE DAY",
+    "HALF THE RETAIL PRICE",
+  ],
+  // C — Scarcity / FOMO
+  c: [
+    "LAST ONE IN STOCK",
+    "THIS WON'T LAST LONG",
+    "GONE IN 24 HOURS",
+    "SOMEONE WILL GRAB THIS",
+    "DON'T SLEEP ON THIS",
+  ],
+} as const;
 
-function pickHook(title: string): string {
-  const seed = title.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  return HOOK_POOL[seed % HOOK_POOL.length];
+export type HookVariant = "a" | "b" | "c";
+
+function pickHook(title: string, variant: HookVariant = "a"): string {
+  const pool = HOOK_VARIANTS[variant];
+  const seed = title.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return pool[seed % pool.length];
 }
 
 // ── Full-frame image with Ken Burns ───────────────────────────────────────
@@ -273,7 +290,7 @@ const CTAScene: React.FC<CTAProps> = ({ lastImage, storeName, storeLogo, brandCo
 };
 
 // ── Main composition ───────────────────────────────────────────────────────
-export const ViralHookMachine: React.FC<TemplateProps> = ({
+export const ViralHookMachine: React.FC<TemplateProps & { hookVariant?: HookVariant }> = ({
   storeName,
   storeLogo,
   title,
@@ -283,6 +300,7 @@ export const ViralHookMachine: React.FC<TemplateProps> = ({
   additionalImages = [],
   condition,
   storeColor,
+  hookVariant = "a",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -302,7 +320,16 @@ export const ViralHookMachine: React.FC<TemplateProps> = ({
   const CTA_START = DETAILS_START + DETAILS_FRAMES;
 
   // Hook
-  const hookText = pickHook(title);
+  // Hook variant A/B/C — different emotional trigger per render
+  const hookText = pickHook(title, hookVariant);
+
+  // Seamless loop: CTA fades to black matching hook's black frame
+  const loopFade = interpolate(
+    frame,
+    [CTA_START + CTA_FRAMES - 10, CTA_START + CTA_FRAMES],
+    [1, 0],
+    { extrapolateRight: "clamp" }
+  );
   const hookScale = spring({
     frame,
     fps,
@@ -339,6 +366,7 @@ export const ViralHookMachine: React.FC<TemplateProps> = ({
         fontFamily: inter,
         transform: `translateX(${shakeX}px)`,
         overflow: "hidden",
+        opacity: loopFade, // seamless loop: fades to black at end
       }}
     >
       {/* ── AUDIO: energetic.mp3 starts on beat ────────────────────── */}

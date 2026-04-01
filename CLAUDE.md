@@ -1,5 +1,32 @@
 # VIDEO PRODUCTION RULES — READ ENTIRELY BEFORE WRITING CODE
 
+## VIRAL VIDEO PRINCIPLES — ENFORCE ON EVERY BUILD:
+- **Hooks must appear within the first 2 seconds** (≤ 60 frames at 30fps)
+- **Scene pacing must be fast** — 1–2 seconds per scene max (30–60 frames)
+- **No static frames** — something must be moving in every single frame
+- **Text must be large, bold, and mobile-optimized** — min 56px, prefer 72px+
+- **Videos must loop seamlessly** — last frame should visually connect to first
+- **Use curiosity gaps and delayed reveals** — never show price before building tension
+- **Include pattern interrupts frequently** — flash cuts, scale punches, color shifts every 2–3s
+- **Follow narrative structure strictly: Hook → Value → Proof → CTA**
+- **End with urgency-driven CTA** — scarcity, FOMO, or time pressure
+- **Adapt style based on platform:**
+  - TikTok: aggressive hooks, rapid cuts, informal language, trend-aware
+  - Instagram: cleaner aesthetic, slightly slower pacing, premium tone
+
+## MULTI-VARIANT A/B HOOK GENERATION — MANDATORY:
+Always generate **3 hook variants** covering different emotional triggers:
+```typescript
+const HOOK_VARIANTS = {
+  curiosity:  "HOW IS THIS STILL AVAILABLE",   // open loop
+  value:      "THIS SHOULDN'T BE THIS CHEAP",   // price shock
+  scarcity:   "LAST ONE IN STOCK",              // FOMO
+};
+```
+- Render all 3 as separate output files: `out/[name]-hook-a.mp4`, `[name]-hook-b.mp4`, `[name]-hook-c.mp4`
+- Only the hook scene changes between variants — all other scenes are identical
+- Report which hook variant was used in console output
+
 ## CRITICAL FAILURES TO NEVER REPEAT:
 - NEVER show a gradient/color background without a product image underneath it
 - NEVER put hook text over a product image — hook gets its own isolated black frame
@@ -128,7 +155,28 @@ Every product image MUST:
 - Spring physics on ALL element entrances (never linear)
 - Ken Burns on ALL product images (minimum 3% scale drift per 3 seconds)
 
+## PACING RULES — MANDATORY:
+- Hook scene: ≤ 60 frames (2 seconds)
+- Gallery per image: 60–75 frames (2–2.5 seconds)
+- Price reveal: 45–60 frames (1.5–2 seconds)
+- Details: 45 frames (1.5 seconds)
+- CTA: 45 frames (1.5 seconds)
+- **Total target: 15 seconds (450 frames) for TikTok/Reels**
+
+## LOOP SEAMLESSLY:
+Last frame of CTA must fade to black matching first frame of Hook.
+Add `opacity: interpolate(frame, [CTA_FRAMES - 10, CTA_FRAMES], [1, 0])` on the CTA scene
+so the video fades to black and loops cleanly back to the hook.
+
+## PATTERN INTERRUPTS — USE AT LEAST 3 PER VIDEO:
+Examples: white flash frame (2–3 frames), scale punch (110%→100% in 4 frames),
+color overlay flash, text slam, speed ramp. Place one every 2–3 seconds.
+
 ## BEFORE RENDERING CHECKLIST — CONFIRM ALL:
+- [ ] Hook appears within first 2 seconds (≤ 60 frames)
+- [ ] 3 hook variants generated (A/B/C) with different emotional triggers
+- [ ] Scene pacing ≤ 2s each
+- [ ] No static frames — motion in every frame
 - [ ] allImages combines primaryImage + additionalImages
 - [ ] Every image fills full frame with objectFit:cover
 - [ ] Ken Burns on every image with alternating direction
@@ -142,6 +190,8 @@ Every product image MUST:
 - [ ] Audio imported and looping
 - [ ] Screen shake on price reveal
 - [ ] Safe zones enforced throughout
+- [ ] Video loops seamlessly (CTA fades to black)
+- [ ] Pattern interrupts every 2–3 seconds
 
 ---
 
