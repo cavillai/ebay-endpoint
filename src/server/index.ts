@@ -25,6 +25,7 @@ import { searchItems, searchItemsByKeyword, getItem } from "./ebay-api";
 import { searchVideoSchema, itemVideoSchema } from "./ebay-validation";
 import { renderMedia, selectComposition as selectComp } from "@remotion/renderer";
 import { generateVideoScript, generateScriptForStore, Platform } from "./script-generator";
+import { downloadMusicTracks, verifyMusicFiles } from "./music-downloader";
 import { z } from "zod";
 import { TEMPLATE_REGISTRY, TemplateName, TEMPLATE_NAMES } from "../templates/registry";
 
@@ -145,6 +146,29 @@ const templateVideoSchema = z.object({
   platform: z.enum(["tiktok", "instagram"]).optional(),
   format: z.enum(["mp4", "png"]).default("mp4"),
 });
+
+// GET /music/status — check which music files are present
+app.get("/music/status", (req, res) => {
+  const { ok, missing } = verifyMusicFiles();
+  res.json({ ok, missing, message: ok ? "All music files ready" : `Missing: ${missing.join(", ")}` });
+});
+
+// POST /music/setup — download all music tracks from Pixabay
+app.post(
+  "/music/setup",
+  handler(async (req, res) => {
+    const apiKey = process.env.PIXABAY_API_KEY;
+    if (!apiKey) {
+      res.status(400).json({ error: "PIXABAY_API_KEY not configured in environment" });
+      return;
+    }
+    const force = req.query.force === "true";
+    console.log(`[Music] Starting Pixabay download (force=${force})...`);
+    const results = await downloadMusicTracks(apiKey, force);
+    const { ok, missing } = verifyMusicFiles();
+    res.json({ ...results, allReady: ok, missing });
+  })
+);
 
 // GET /product-data — fetch eBay product as Remotion-ready JSON props (for local rendering)
 app.get(

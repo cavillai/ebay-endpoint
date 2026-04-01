@@ -18,6 +18,7 @@ import { SwipeCarouselSim }    from "./templates/instagram/SwipeCarouselSim";
 
 // ─── TikTok Templates ────────────────────────────────────────────────────
 import { HookWordByWord }      from "./templates/tiktok/HookWordByWord";
+import { ViralHookMachine }    from "./templates/tiktok/ViralHookMachine";
 import { POVReseller }         from "./templates/tiktok/POVReseller";
 import { RapidFireFive }       from "./templates/tiktok/RapidFireFive";
 import { CommentReplyBait }    from "./templates/tiktok/CommentReplyBait";
@@ -81,6 +82,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition id="RapidFireFive"       component={RapidFireFive       as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
       <Composition id="CommentReplyBait"    component={CommentReplyBait    as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
       <Composition id="UrgencyCountdown"    component={UrgencyCountdown    as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
+      <Composition id="ViralHookMachine"   component={ViralHookMachine    as any} {...TT_DIMS} defaultProps={TEMPLATE_DEFAULTS} />
     </>
   );
 };
