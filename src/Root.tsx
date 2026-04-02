@@ -127,6 +127,7 @@ export const RemotionRoot: React.FC = () => {
           transitionMp4: "",
           renderSeed: 0,
           priceAnimationId: "count-up",
+          ctaPhrase: "Check Out",
         }}
       />
 

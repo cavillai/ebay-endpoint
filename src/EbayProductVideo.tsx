@@ -51,6 +51,7 @@ export const ebayProductSchema = z.object({
   transitionMp4: z.string().optional().default(""),
   renderSeed:  z.coerce.number().default(0),
   priceAnimationId: z.string().optional().default("count-up"),
+  ctaPhrase:        z.string().optional().default("Check Out"),
 });
 
 export type EbayProductVideoProps = z.infer<typeof ebayProductSchema>;
@@ -111,6 +112,19 @@ export const VIDEO_STYLES: Record<VideoStyle, {
     badgeRotation: 3,
   },
 };
+
+// ── CTA Action Phrase Pool ────────────────────────────────────────────────
+const CTA_PHRASES = [
+  "Check Out",        "See It At",        "Grab Yours Here",
+  "Score One Now",    "Snag The Look",    "Claim Yours.",
+  "Take A Peek,",     "Explore At",       "See The Details,",
+  "While They Last,", "Before It's Gone,","Limited Stock,",
+  "Get It While Hot.","Level Up Your Style With","Upgrade Your Look At",
+  "Start Your Journey At",
+];
+export function pickCTAPhrase(renderSeed: number): string {
+  return CTA_PHRASES[renderSeed % CTA_PHRASES.length];
+}
 
 // ── Scene frame constants ─────────────────────────────────────────────────
 const HOOK_START    = 0;
@@ -247,6 +261,7 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   videoStyle = "classic", categoryName = "",
   transitionMp4 = "", renderSeed = 0,
   priceAnimationId = "count-up",
+  ctaPhrase = "Check Out",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -670,35 +685,35 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             pointerEvents: "none",
           }} />
 
-          {/* ── STORE NAME: upper-center, isolated from other text ── */}
-          {/* Occupies top 45% of safe zone — nothing else here */}
+          {/* ── CTA BLOCK: phrase + storeName + urgency — single centered group ──
+               Pushed down 80px from SAFE_TOP+60 so safe on all platforms     */}
           <div style={{
             position: "absolute",
-            top: SAFE_TOP + 60,
+            top: SAFE_TOP + 140,   // well inside safe zone, not cropped
             left: SAFE_SIDES,
             right: SAFE_SIDES,
             textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
           }}>
-            {/* Style-specific graphic accent above store name */}
-            {videoStyle === "neon" && (
-              <div style={{
-                fontFamily: inter, fontSize: 24, fontWeight: 600,
-                color: accentColor, letterSpacing: 6,
-                textTransform: "uppercase", marginBottom: 12,
-                textShadow: `0 0 10px ${accentColor}`,
-                opacity: interpolate(frame - 393, [0, 15], [0, 1], { extrapolateRight: "clamp" }),
-              }}>
-                ◈ available now ◈
-              </div>
-            )}
-            {videoStyle === "cinematic" && (
-              <div style={{
-                width: 80, height: 2, background: accentColor,
-                margin: "0 auto 16px", opacity: nameScale,
-              }} />
-            )}
+            {/* Action phrase — randomly picked, slides in first */}
+            <div style={{
+              fontFamily: inter,
+              fontSize: 36,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.82)",
+              letterSpacing: 3,
+              textTransform: "uppercase",
+              lineHeight: 1,
+              opacity: interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" }),
+              transform: `translateY(${interpolate(frame, [0, 12], [20, 0], { extrapolateRight: "clamp" })}px)`,
+            }}>
+              {ctaPhrase}
+            </div>
 
-            {/* STORE NAME — 104px, spring entrance, its own clear zone */}
+            {/* STORE NAME — largest text, springs in after phrase */}
             <div style={{
               fontFamily: bebas,
               fontSize: 104,
@@ -711,17 +726,16 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
               {storeName}
             </div>
 
-            {/* Thin divider line separating store name from CTA */}
+            {/* Thin accent divider */}
             <div style={{
-              width: "60%", height: 2,
+              width: "55%", height: 2,
               background: `linear-gradient(to right, transparent, ${accentColor}, transparent)`,
-              margin: "18px auto",
-              opacity: interpolate(frame - 400, [0, 15], [0, 1], { extrapolateRight: "clamp" }),
+              margin: "10px auto 0",
+              opacity: interpolate(frame - 15, [0, 12], [0, 1], { extrapolateRight: "clamp" }),
             }} />
           </div>
 
-          {/* ── CTA TEXT + ARROW: lower-center, clearly separated ── */}
-          {/* Occupies bottom 35% of safe zone — well below store name */}
+          {/* ── URGENCY + LOGO + ARROW: lower safe zone ── */}
           <div style={{
             position: "absolute",
             bottom: SAFE_BOTTOM + 90,
@@ -733,19 +747,6 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             alignItems: "center",
             gap: 20,
           }}>
-            {/* Store name — large, branded, no "on eBay" text (logo handles that) */}
-            <div style={{
-              fontFamily: bebas,
-              fontSize: 80,
-              color: "#FFFFFF",
-              letterSpacing: 6,
-              textAlign: "center",
-              transform: `translateY(${ctaSlide}px)`,
-              textShadow: `0 0 40px ${accentColor}90, 0 2px 16px rgba(0,0,0,0.95)`,
-              lineHeight: 1,
-            }}>
-              {storeName}
-            </div>
 
             {/* Urgency sub-line (ctaText e.g. "GRAB IT BEFORE IT'S GONE") */}
             <div style={{

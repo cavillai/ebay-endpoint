@@ -320,6 +320,15 @@ async function renderListing(row: ListingRow, index: number, total: number) {
   const PRICE_ANIMS = ["count-up","drop-bounce","slot-machine","typewriter","slam","split-reveal","glitch"];
   const priceAnimationId = PRICE_ANIMS[rand % PRICE_ANIMS.length];
 
+  const CTA_PHRASES = [
+    "Check Out","See It At","Grab Yours Here","Score One Now","Snag The Look",
+    "Claim Yours.","Take A Peek,","Explore At","See The Details,",
+    "While They Last,","Before It's Gone,","Limited Stock,",
+    "Get It While Hot.","Level Up Your Style With","Upgrade Your Look At",
+    "Start Your Journey At",
+  ];
+  const ctaPhrase = CTA_PHRASES[(rand + 5) % CTA_PHRASES.length];
+
   console.log(`   🎨 ${palette.name} | 🎬 ${videoStyle} | 🎞️  ${transitionMp4.split("/").pop() || "light-leak"}`);
   console.log(`   💰 Price anim: ${priceAnimationId}`);
   console.log(`   🪝 "${hook}" | 📣 "${ctaText}"`);
@@ -345,6 +354,7 @@ async function renderListing(row: ListingRow, index: number, total: number) {
     transitionMp4,
     renderSeed,
     priceAnimationId,
+    ctaPhrase,
   };
 
   const titleSlug = row.title
