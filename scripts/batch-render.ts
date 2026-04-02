@@ -57,11 +57,17 @@ let usedCTAs: string[] = [];
 let lastPaletteIdx = -1;
 let lastMusicTrack = "";
 
+const VIDEO_STYLE_ROTATION = ["classic", "neon", "cinematic", "split"] as const;
+
 function pickPalette(index: number) {
   let idx = index % PALETTES.length;
   if (idx === lastPaletteIdx) idx = (idx + 1) % PALETTES.length;
   lastPaletteIdx = idx;
   return PALETTES[idx];
+}
+
+function pickVideoStyle(index: number): string {
+  return VIDEO_STYLE_ROTATION[index % VIDEO_STYLE_ROTATION.length];
 }
 
 function pickHook(title: string, index: number): string {
@@ -272,6 +278,9 @@ async function renderListing(row: ListingRow, index: number, total: number) {
   console.log(`   📣 CTA: "${ctaText}" | 🎵 ${audioFile}`);
   console.log(`   Price: $${row.price} | Condition: ${row.condition} | Images: ${allImageUrls.length}`);
 
+  const videoStyle = pickVideoStyle(index);
+  console.log(`   🎬 Style: ${videoStyle}`);
+
   const props = {
     storeName:    storeName!,
     platform,
@@ -287,6 +296,7 @@ async function renderListing(row: ListingRow, index: number, total: number) {
     accentColor:  palette.accent,
     bgColor:      palette.bg,
     categoryName: row.categoryName || "",
+    videoStyle,
   };
 
   const titleSlug = row.title

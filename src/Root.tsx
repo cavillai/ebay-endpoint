@@ -86,6 +86,7 @@ export const RemotionRoot: React.FC = () => {
           accentColor: "#FFD700",
           bgColor: "#111111",
           categoryName: "Dresses",
+          videoStyle: "classic" as const,
         }}
       />
 

@@ -44,9 +44,60 @@ export const ebayProductSchema = z.object({
   accentColor: z.string().default("#FFD700"),
   bgColor:     z.string().default("#111111"),
   categoryName: z.string().optional().default(""),
+  videoStyle:  z.enum(["classic","neon","cinematic","split"]).default("classic"),
 });
 
 export type EbayProductVideoProps = z.infer<typeof ebayProductSchema>;
+
+// ── Video style configurations ────────────────────────────────────────────
+export type VideoStyle = "classic" | "neon" | "cinematic" | "split";
+
+export const VIDEO_STYLES: Record<VideoStyle, {
+  label: string;
+  hookFontSize: number;
+  hookLetterSpacing: number;
+  transitionStyle: string;
+  galleryOverlay: string;
+  priceCardBorder: string;
+  badgeRotation: number;
+}> = {
+  classic: {
+    label: "Classic Energy",
+    hookFontSize: 120,
+    hookLetterSpacing: 4,
+    transitionStyle: "light-leak",
+    galleryOverlay: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 25%, transparent 70%, rgba(0,0,0,0.55) 100%)",
+    priceCardBorder: "1px solid rgba(255,255,255,0.2)",
+    badgeRotation: 2,
+  },
+  neon: {
+    label: "Neon Club",
+    hookFontSize: 110,
+    hookLetterSpacing: 8,
+    transitionStyle: "light-leak-hue",
+    galleryOverlay: "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 30%, transparent 65%, rgba(0,0,0,0.7) 100%)",
+    priceCardBorder: "2px solid rgba(255,255,255,0.4)",
+    badgeRotation: 4,
+  },
+  cinematic: {
+    label: "Cinematic",
+    hookFontSize: 96,
+    hookLetterSpacing: 12,
+    transitionStyle: "fade",
+    galleryOverlay: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 20%, transparent 75%, rgba(0,0,0,0.65) 100%)",
+    priceCardBorder: "1px solid rgba(255,255,255,0.15)",
+    badgeRotation: 0,
+  },
+  split: {
+    label: "Split Screen",
+    hookFontSize: 128,
+    hookLetterSpacing: 2,
+    transitionStyle: "flash",
+    galleryOverlay: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 30%, transparent 68%, rgba(0,0,0,0.5) 100%)",
+    priceCardBorder: "2px solid rgba(255,255,255,0.3)",
+    badgeRotation: 3,
+  },
+};
 
 // ── Scene frame constants ─────────────────────────────────────────────────
 const HOOK_START    = 0;
@@ -113,10 +164,10 @@ const ImageSlide: React.FC<{
         }}
       />
 
-      {/* Gradient overlay for text legibility */}
+      {/* Gradient overlay — less aggressive so product images shine */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 25%, transparent 70%, rgba(0,0,0,0.55) 100%)",
+        background: "linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 22%, transparent 72%, rgba(0,0,0,0.5) 100%)",
       }} />
 
       {/* Store watermark — top-left safe zone */}
@@ -167,12 +218,14 @@ const ImageSlide: React.FC<{
 export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   storeName, platform, title, price, condition, brand, size,
   imageUrls, audioFile, hook, ctaText, accentColor, bgColor,
+  videoStyle = "classic",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const allImages = imageUrls.filter(Boolean);
   const FRAMES_PER_IMAGE = Math.floor(210 / allImages.length);
+  const style = VIDEO_STYLES[videoStyle];
   const lastImage  = allImages[allImages.length - 1];
   const firstImage = allImages[0];
 
@@ -281,18 +334,42 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             transform: "translate(-50%, -50%)",
           }} />
 
-          {/* Hook text — Bebas Neue 120px, springs from 4x */}
+          {/* Style-specific hook accent (neon scanlines / cinematic bars) */}
+          {videoStyle === "neon" && (
+            <div style={{
+              position: "absolute", inset: 0,
+              backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px)",
+              pointerEvents: "none",
+            }} />
+          )}
+          {videoStyle === "cinematic" && (
+            <>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 80, backgroundColor: "#000" }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, backgroundColor: "#000" }} />
+            </>
+          )}
+          {videoStyle === "split" && (
+            <div style={{
+              position: "absolute", left: "50%", top: 0, bottom: 0, width: 3,
+              background: `linear-gradient(to bottom, transparent, ${accentColor}, transparent)`,
+              transform: "translateX(-50%)",
+            }} />
+          )}
+
+          {/* Hook text — Bebas Neue, size from style config, springs from 4x */}
           <div style={{
             fontFamily: bebas,
-            fontSize: 120,
+            fontSize: style.hookFontSize,
             color: "#FFFFFF",
-            letterSpacing: 4,
+            letterSpacing: style.hookLetterSpacing,
             textAlign: "center",
             paddingLeft: SAFE_SIDES,
             paddingRight: SAFE_SIDES,
             transform: `scale(${hookScale})`,
             lineHeight: 1.1,
-            textShadow: `0 0 40px ${accentColor}`,
+            textShadow: videoStyle === "neon"
+              ? `0 0 20px ${accentColor}, 0 0 60px ${accentColor}80, 0 0 100px ${accentColor}40`
+              : `0 0 40px ${accentColor}`,
           }}>
             {hook}
           </div>
@@ -321,19 +398,36 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
         </Sequence>
       ))}
 
-      {/* Light leaks at every image transition */}
-      {allImages.slice(1).map((_, i) => (
-        <Sequence
-          key={`leak-${i}`}
-          from={GALLERY_START + (i + 1) * FRAMES_PER_IMAGE - 8}
-          durationInFrames={18}
-          premountFor={5}
-        >
-          <AbsoluteFill>
-            <LightLeak durationInFrames={18} seed={i + 1} hueShift={i * 60} />
-          </AbsoluteFill>
-        </Sequence>
-      ))}
+      {/* Image transitions — style-dependent effects */}
+      {allImages.slice(1).map((_, i) => {
+        const transFrame = GALLERY_START + (i + 1) * FRAMES_PER_IMAGE - 8;
+        if (videoStyle === "split") {
+          // Flash cut — white flash instead of light leak
+          return (
+            <Sequence key={`trans-${i}`} from={transFrame} durationInFrames={6} premountFor={3}>
+              <AbsoluteFill style={{ backgroundColor: "#fff", opacity: interpolate(useCurrentFrame(), [0, 3, 6], [0, 1, 0], { extrapolateRight: "clamp" }) }} />
+            </Sequence>
+          );
+        }
+        if (videoStyle === "cinematic") {
+          // Slow cross-dissolve — softer light leak
+          return (
+            <Sequence key={`trans-${i}`} from={transFrame - 4} durationInFrames={24} premountFor={5}>
+              <AbsoluteFill>
+                <LightLeak durationInFrames={24} seed={i + 10} hueShift={30} />
+              </AbsoluteFill>
+            </Sequence>
+          );
+        }
+        // classic + neon — standard light leak with hue variation
+        return (
+          <Sequence key={`leak-${i}`} from={transFrame} durationInFrames={18} premountFor={5}>
+            <AbsoluteFill>
+              <LightLeak durationInFrames={18} seed={i + 1} hueShift={(videoStyle === "neon" ? i * 120 : i * 60) % 360} />
+            </AbsoluteFill>
+          </Sequence>
+        );
+      })}
 
       {/* ════════════════════════════════════════════════════════════
           SCENE 3 — PRICE REVEAL (frames 270–330)
@@ -463,19 +557,21 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             ))}
           </AbsoluteFill>
 
-          {/* Mid-brand emphasis — frame 360 */}
-          <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-            <div style={{
-              fontFamily: bebas,
-              fontSize: 72,
-              color: "#fff",
-              opacity: midBrandOpacity,
-              letterSpacing: 4,
-              textShadow: `0 0 30px ${accentColor}`,
-            }}>
-              {storeName}
-            </div>
-          </AbsoluteFill>
+          {/* Mid-brand emphasis — bottom safe zone, no badge overlap */}
+          <div style={{
+            position: "absolute",
+            bottom: SAFE_BOTTOM + 30,
+            left: 0, right: 0,
+            textAlign: "center",
+            fontFamily: bebas,
+            fontSize: 64,
+            color: accentColor,
+            opacity: midBrandOpacity,
+            letterSpacing: 4,
+            textShadow: `0 0 30px ${accentColor}80`,
+          }}>
+            {storeName}
+          </div>
 
         </AbsoluteFill>
       </Sequence>
@@ -503,33 +599,70 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             pointerEvents: "none",
           }} />
 
-          {/* Content — safe zones enforced */}
-          <AbsoluteFill style={{
-            paddingTop: SAFE_TOP,
-            paddingBottom: SAFE_BOTTOM,
-            paddingLeft: SAFE_SIDES,
-            paddingRight: SAFE_SIDES,
-            justifyContent: "center",
-            alignItems: "center",
-            flexDirection: "column",
-            gap: 16,
+          {/* ── STORE NAME: upper-center, isolated from other text ── */}
+          {/* Occupies top 45% of safe zone — nothing else here */}
+          <div style={{
+            position: "absolute",
+            top: SAFE_TOP + 60,
+            left: SAFE_SIDES,
+            right: SAFE_SIDES,
+            textAlign: "center",
           }}>
+            {/* Style-specific graphic accent above store name */}
+            {videoStyle === "neon" && (
+              <div style={{
+                fontFamily: inter, fontSize: 24, fontWeight: 600,
+                color: accentColor, letterSpacing: 6,
+                textTransform: "uppercase", marginBottom: 12,
+                textShadow: `0 0 10px ${accentColor}`,
+                opacity: interpolate(frame - 393, [0, 15], [0, 1], { extrapolateRight: "clamp" }),
+              }}>
+                ◈ available now ◈
+              </div>
+            )}
+            {videoStyle === "cinematic" && (
+              <div style={{
+                width: 80, height: 2, background: accentColor,
+                margin: "0 auto 16px", opacity: nameScale,
+              }} />
+            )}
 
-            {/* Store name — largest text in video, Bebas Neue 104px */}
+            {/* STORE NAME — 104px, spring entrance, its own clear zone */}
             <div style={{
               fontFamily: bebas,
               fontSize: 104,
               color: "#FFFFFF",
               letterSpacing: 6,
-              textAlign: "center",
-              transform: `scale(${nameScale})`,
-              textShadow: `0 0 40px ${accentColor}, 0 4px 20px rgba(0,0,0,0.9)`,
               lineHeight: 1,
+              transform: `scale(${nameScale})`,
+              textShadow: `0 0 50px ${accentColor}99, 0 4px 20px rgba(0,0,0,0.95)`,
             }}>
               {storeName}
             </div>
 
-            {/* CTA text — platform-specific */}
+            {/* Thin divider line separating store name from CTA */}
+            <div style={{
+              width: "60%", height: 2,
+              background: `linear-gradient(to right, transparent, ${accentColor}, transparent)`,
+              margin: "18px auto",
+              opacity: interpolate(frame - 400, [0, 15], [0, 1], { extrapolateRight: "clamp" }),
+            }} />
+          </div>
+
+          {/* ── CTA TEXT + ARROW: lower-center, clearly separated ── */}
+          {/* Occupies bottom 35% of safe zone — well below store name */}
+          <div style={{
+            position: "absolute",
+            bottom: SAFE_BOTTOM + 90,
+            left: SAFE_SIDES,
+            right: SAFE_SIDES,
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 20,
+          }}>
+            {/* CTA text */}
             <div style={{
               fontFamily: bebas,
               fontSize: 56,
@@ -537,7 +670,8 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
               letterSpacing: 3,
               textAlign: "center",
               transform: `translateY(${ctaSlide}px)`,
-              textShadow: "0 2px 12px rgba(0,0,0,0.9)",
+              textShadow: "0 2px 16px rgba(0,0,0,0.95)",
+              lineHeight: 1.1,
             }}>
               {ctaText}
             </div>
@@ -547,12 +681,11 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
               fontSize: 64,
               transform: `translateY(${bouncingArrow}px)`,
               color: accentColor,
-              marginTop: 8,
+              lineHeight: 1,
             }}>
               ↓
             </div>
-
-          </AbsoluteFill>
+          </div>
         </AbsoluteFill>
       </Sequence>
 
