@@ -1,5 +1,6 @@
 import React from "react";
 import { Composition, Still } from "remotion";
+import { EbayProductVideo, ebayProductSchema } from "./EbayProductVideo";
 import { myCompSchema, PreviewCard } from "./PreviewCard";
 import { ProductShowcase, productShowcaseSchema } from "./ProductShowcase";
 import { ProductCarousel, productCarouselSchema } from "./ProductCarousel";
@@ -62,6 +63,30 @@ export const RemotionRoot: React.FC = () => {
         width={1080} height={1920} fps={30} durationInFrames={270}
         schema={productCarouselSchema}
         defaultProps={{ storeName: "My Store", framesPerProduct: 90, products: [] }}
+      />
+
+      {/* ─── EbayProductVideo (Master Prompt v1.0) ───────────────────── */}
+      <Composition
+        id="EbayProductVideo"
+        component={EbayProductVideo}
+        width={1080} height={1920} fps={30} durationInFrames={450}
+        schema={ebayProductSchema}
+        defaultProps={{
+          storeName: "RenewFit",
+          platform: "tiktok" as const,
+          title: "Sample Product Title",
+          price: 29.99,
+          condition: "Pre-owned - Good",
+          brand: "Sample Brand",
+          size: "M",
+          imageUrls: ["https://via.placeholder.com/1080x1920"],
+          audioFile: "music/party-time.mp3",
+          hook: "YOU NEED TO SEE THIS",
+          ctaText: "GRAB IT BEFORE IT'S GONE",
+          accentColor: "#FFD700",
+          bgColor: "#111111",
+          categoryName: "Dresses",
+        }}
       />
 
       {/* ─── Instagram Templates ──────────────────────────────────────── */}

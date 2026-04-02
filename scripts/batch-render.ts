@@ -18,6 +18,76 @@ import path from "path";
 
 const RAILWAY_BASE = "https://ebay-endpoint-production.up.railway.app";
 
+// ── Color palettes (Phase 3) ───────────────────────────────────────────────
+const PALETTES = [
+  { name: "GOLD_RUSH",   bg: "#111111", accent: "#FFD700" },
+  { name: "NEON_PINK",   bg: "#0d0d0d", accent: "#FF1493" },
+  { name: "TEAL_WAVE",   bg: "#071a1a", accent: "#00CED1" },
+  { name: "DARK_FIRE",   bg: "#000000", accent: "#FF4500" },
+  { name: "MIDNIGHT",    bg: "#0a0a1a", accent: "#7B68EE" },
+  { name: "ROSE_GOLD",   bg: "#1a0a0a", accent: "#B76E79" },
+  { name: "DEEP_PURPLE", bg: "#0d0010", accent: "#9400D3" },
+];
+
+// ── Hook pool (Phase 2) ────────────────────────────────────────────────────
+const ALL_HOOKS = [
+  "THEY PRICED THIS WRONG",    "YOU'LL SCREENSHOT THIS",
+  "THIS PRICE IS ILLEGAL",      "STILL HERE?? WOW",
+  "QUIET LUXURY. LOUD SAVINGS","WAIT BEFORE YOU SCROLL",
+  "FIRST COME. BEST DRESSED.",  "MY LOSS IS YOUR GAIN",
+  "SOMEONE DONATED THIS",       "PRE-LOVED BUT MAKE IT FASHION",
+  "OLD MONEY. NEW PRICE.",      "THIS WON'T BE HERE TOMORROW",
+  "GUESS THE PRICE 👇",         "THE TAG SAYS EVERYTHING",
+];
+
+// ── TikTok CTA pool (Phase 5) ─────────────────────────────────────────────
+const TIKTOK_CTAS = [
+  "GRAB THIS BEFORE IT'S GONE", "ONLY ONE LEFT",
+  "STILL ON EBAY — LINK IN BIO","LINK IN BIO NOW 👇",
+  "THIS WON'T BE HERE TOMORROW","SEARCH ON EBAY 🔍",
+];
+const IG_CTAS = [
+  "Shop on eBay — Link in Bio", "Now Available — Link in Bio 👇",
+  "Find it at the Link in Bio", "Available Now — See Bio",
+];
+
+// Batch state for anti-repetition
+let usedHooks: string[] = [];
+let usedCTAs: string[] = [];
+let lastPaletteIdx = -1;
+let lastMusicTrack = "";
+
+function pickPalette(index: number) {
+  let idx = index % PALETTES.length;
+  if (idx === lastPaletteIdx) idx = (idx + 1) % PALETTES.length;
+  lastPaletteIdx = idx;
+  return PALETTES[idx];
+}
+
+function pickHook(title: string, index: number): string {
+  const available = ALL_HOOKS.filter(h => (usedHooks.filter(u => u === h).length < 2));
+  const seed = (title.charCodeAt(0) || 0) + index;
+  const hook = available[seed % available.length] || ALL_HOOKS[index % ALL_HOOKS.length];
+  usedHooks.push(hook);
+  return hook;
+}
+
+function pickCTA(platform: string, storeName: string, index: number): string {
+  const pool = platform === "tiktok" ? TIKTOK_CTAS : IG_CTAS;
+  const available = pool.filter(c => (usedCTAs.filter(u => u === c).length < 2));
+  const cta = (available[index % available.length] || pool[index % pool.length])
+    .replace("{storeName}", storeName);
+  usedCTAs.push(cta);
+  return cta;
+}
+
+function pickMusic(musicFiles: string[], index: number): string {
+  const available = musicFiles.filter(f => f !== lastMusicTrack);
+  const track = available[index % available.length] || musicFiles[0];
+  lastMusicTrack = track;
+  return track;
+}
+
 // Parse CLI args
 const args = Object.fromEntries(
   process.argv.slice(2)
@@ -28,7 +98,8 @@ const args = Object.fromEntries(
 const storeName = args.storeName || args.store;
 const keyword = args.keyword || args.k;
 const outputDir = args.output || "out";
-const template = args.template || "ViralHookMachine";
+const template = args.template || "EbayProductVideo";
+const platform = (args.platform || "tiktok") as "tiktok" | "instagram";
 const csvFile = args.file;
 const maxItems = args.max ? parseInt(args.max) : undefined;
 
@@ -169,6 +240,14 @@ async function fetchImages(searchTitle: string): Promise<{ imageUrl: string; add
   };
 }
 
+// ── Scan music files at runtime (never hardcoded) ─────────────────────────
+function getMusicFiles(): string[] {
+  try {
+    return require("fs").readdirSync("public/music/")
+      .filter((f: string) => f.endsWith(".mp3") || f.endsWith(".wav"));
+  } catch { return ["party-time.mp3"]; }
+}
+
 // ── Render a single listing ────────────────────────────────────────────────
 async function renderListing(row: ListingRow, index: number, total: number) {
   const label = row.title.slice(0, 55);
@@ -177,30 +256,44 @@ async function renderListing(row: ListingRow, index: number, total: number) {
   // Fetch images from eBay API
   console.log("   🔍 Fetching images...");
   const images = await fetchImages(row.title);
+  const allImageUrls = [
+    images.imageUrl.replace("s-l225", "s-l500"),
+    ...images.additionalImages.map((u: string) => u.replace("s-l225", "s-l500")),
+  ].filter(Boolean);
+
+  // Pick randomised elements — no consecutive repeats
+  const musicFiles = getMusicFiles();
+  const palette    = pickPalette(index);
+  const hook       = pickHook(row.title, index);
+  const ctaText    = pickCTA(platform, storeName!, index);
+  const audioFile  = `music/${pickMusic(musicFiles, index)}`;
+
+  console.log(`   🎨 Palette: ${palette.name} | 🪝 Hook: "${hook}"`);
+  console.log(`   📣 CTA: "${ctaText}" | 🎵 ${audioFile}`);
+  console.log(`   Price: $${row.price} | Condition: ${row.condition} | Images: ${allImageUrls.length}`);
 
   const props = {
-    storeName: storeName!,
-    title: row.title,
-    price: row.price || "0.00",
-    currency: "USD",
-    imageUrl: images.imageUrl,
-    additionalImages: images.additionalImages,
-    condition: row.condition || "Pre-owned",
-    categoryName: row.categoryName,
+    storeName:    storeName!,
+    platform,
+    title:        row.title,
+    price:        parseFloat(row.price) || 0,
+    condition:    row.condition || "Pre-owned",
+    brand:        "",
+    size:         "",
+    imageUrls:    allImageUrls,
+    audioFile,
+    hook,
+    ctaText,
+    accentColor:  palette.accent,
+    bgColor:      palette.bg,
+    categoryName: row.categoryName || "",
   };
 
-  console.log(`   Price: $${props.price} | Condition: ${props.condition}`);
-  console.log(`   Category: ${props.categoryName || "N/A"}`);
-  console.log(`   Images: ${1 + images.additionalImages.length}`);
-
-  // Create slug — always include title so filenames are unique even when
-  // item numbers collide due to Excel scientific notation truncation
   const titleSlug = row.title
     .split(" ").slice(0, 5).join("-")
     .toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 45);
-  const slug = `${storeName}-${String(index + 1).padStart(3, "0")}-${titleSlug}`;
-
-  const outFile = path.join(outputDir, `${slug}.mp4`);
+  const slug     = `${storeName}-${String(index + 1).padStart(3, "0")}-${titleSlug}`;
+  const outFile  = path.join(outputDir, `${slug}.mp4`);
   const propsFile = path.join(outputDir, `.props-${index}.json`);
 
   writeFileSync(propsFile, JSON.stringify(props, null, 2));
