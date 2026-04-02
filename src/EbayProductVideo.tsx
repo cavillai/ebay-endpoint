@@ -1,7 +1,7 @@
 /**
  * EbayProductVideo — full rebuild per Master Prompt v1.0
- * 5 scenes, 450 frames, 15 seconds, 1080x1920
- * Hook(0-60) → Gallery(60-270) → Price(270-330) → Details(330-390) → CTA(390-450)
+ * 5 scenes, 510 frames, 17 seconds, 1080x1920
+ * Hook(0-60) → Gallery(60-270) → Price(270-330) → Details(330-390) → CTA(390-510)
  */
 
 import React from "react";
@@ -293,7 +293,7 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   const ctaSlide = interpolate(ctaProgress, [0, 1], [100, 0]);
   const bouncingArrow = Math.sin(frame * 0.25) * 18;
   const pulseBorder = Math.sin(frame * 0.2) * 0.5 + 0.5;
-  const fadeOut = interpolate(frame, [440, 450], [1, 0], { extrapolateRight: "clamp" });
+  const fadeOut = interpolate(frame, [500, 510], [1, 0], { extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", fontFamily: inter, overflow: "hidden" }}>
@@ -581,7 +581,7 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
           Product image BG, store name LARGE, bouncing arrow,
           pulsing border, fades out last 10 frames
       ════════════════════════════════════════════════════════════ */}
-      <Sequence from={CTA_START} durationInFrames={60} premountFor={10}>
+      <Sequence from={CTA_START} durationInFrames={120} premountFor={10}>
         <AbsoluteFill style={{ opacity: fadeOut }}>
 
           {/* Background — first product image */}

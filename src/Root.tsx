@@ -69,7 +69,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="EbayProductVideo"
         component={EbayProductVideo}
-        width={1080} height={1920} fps={30} durationInFrames={450}
+        width={1080} height={1920} fps={30} durationInFrames={510}
         schema={ebayProductSchema}
         defaultProps={{
           storeName: "RenewFit",
