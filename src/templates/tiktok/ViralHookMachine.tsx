@@ -18,6 +18,7 @@ import {
 } from "remotion";
 import { Audio } from "@remotion/media";
 import { LightLeak } from "@remotion/light-leaks";
+import { Star } from "@remotion/shapes";
 import { loadFont as loadBebasNeue } from "@remotion/google-fonts/BebasNeue";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
 import { loadFont as loadOswald } from "@remotion/google-fonts/Oswald";
@@ -95,47 +96,61 @@ export function pickTransitionLabel(title: string, imageIndex: number): string {
   return TRANSITION_LABELS[(seed + imageIndex * 7) % TRANSITION_LABELS.length];
 }
 
-// ── Star Store Badge — large, readable ────────────────────────────────────
+// ── Star Store Badge — @remotion/shapes Star ──────────────────────────────
 const StarBadge: React.FC<{ storeName: string; size?: number; animate?: boolean }> = ({
   storeName, size = 160, animate = false,
 }) => {
   const frame = useCurrentFrame();
   const pulse = animate ? 1 + Math.sin(frame * 0.1) * 0.04 : 1;
 
-  // Font size adapts: short names get big text, long names get smaller
+  // Font size adapts to name length
   const chars = storeName.length;
   const fontSize = chars <= 5 ? 36 : chars <= 8 ? 30 : chars <= 11 ? 24 : chars <= 14 ? 20 : 16;
 
-  // 5-pointed star (centered in viewBox)
-  const cx = 50, cy = 50, outer = 47, inner = 21;
-  const points: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const angle = (i * Math.PI) / 5 - Math.PI / 2;
-    const r = i % 2 === 0 ? outer : inner;
-    points.push(`${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
-  }
+  const outerRadius = size / 2;
+  const innerRadius = outerRadius * 0.44; // classic 5-point star ratio
 
   return (
-    <div style={{ display: "inline-flex", transform: `scale(${pulse})` }}>
-      <svg width={size} height={size} viewBox="0 0 100 100">
-        {/* Drop shadow effect */}
-        <polygon points={points.join(" ")} fill="rgba(0,0,0,0.4)" transform="translate(2,3)" />
-        {/* Star fill */}
-        <polygon points={points.join(" ")} fill="#FFE500" stroke="#F73A8A" strokeWidth={2.5} />
-        {/* Store name text */}
-        <text
-          x="50" y="50"
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="#000"
-          fontSize={fontSize}
-          fontWeight="900"
-          fontFamily="Inter, sans-serif"
-          style={{ letterSpacing: -0.5 } as React.CSSProperties}
-        >
+    <div style={{ display: "inline-flex", position: "relative", width: size, height: size, transform: `scale(${pulse})` }}>
+      {/* Drop shadow layer */}
+      <div style={{ position: "absolute", top: 3, left: 3, opacity: 0.35 }}>
+        <Star
+          points={5}
+          outerRadius={outerRadius}
+          innerRadius={innerRadius}
+          fill="rgba(0,0,0,0.8)"
+        />
+      </div>
+
+      {/* Star shape */}
+      <Star
+        points={5}
+        outerRadius={outerRadius}
+        innerRadius={innerRadius}
+        fill="#FFE500"
+        stroke="#F73A8A"
+        strokeWidth={Math.round(size * 0.016)}
+      />
+
+      {/* Store name centered over star */}
+      <div style={{
+        position: "absolute", inset: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        textAlign: "center",
+        paddingLeft: size * 0.15, paddingRight: size * 0.15,
+      }}>
+        <span style={{
+          fontFamily: "Inter, sans-serif",
+          fontSize,
+          fontWeight: 900,
+          color: "#000",
+          lineHeight: 1.1,
+          letterSpacing: -0.5,
+          wordBreak: "break-word",
+        }}>
           {storeName.length > 14 ? storeName.slice(0, 13) + "…" : storeName}
-        </text>
-      </svg>
+        </span>
+      </div>
     </div>
   );
 };
