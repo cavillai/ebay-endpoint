@@ -9,6 +9,7 @@ import {
   AbsoluteFill,
   Img,
   Sequence,
+  Video,
   useCurrentFrame,
   useVideoConfig,
   interpolate,
@@ -45,6 +46,8 @@ export const ebayProductSchema = z.object({
   bgColor:     z.string().default("#111111"),
   categoryName: z.string().optional().default(""),
   videoStyle:  z.enum(["classic","neon","cinematic","split"]).default("classic"),
+  transitionMp4: z.string().optional().default(""), // e.g. "assets/transitions/wipes/wipe-left.mp4"
+  renderSeed:  z.coerce.number().default(0),         // unique per render for true variety
 });
 
 export type EbayProductVideoProps = z.infer<typeof ebayProductSchema>;
@@ -219,6 +222,7 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   storeName, platform, title, price, condition, brand, size,
   imageUrls, audioFile, hook, ctaText, accentColor, bgColor,
   videoStyle = "classic", categoryName = "",
+  transitionMp4 = "", renderSeed = 0,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -393,32 +397,53 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
         </Sequence>
       ))}
 
-      {/* Image transitions — style-dependent effects */}
+      {/* Image transitions — varied per renderSeed + style */}
       {allImages.slice(1).map((_, i) => {
         const transFrame = GALLERY_START + (i + 1) * FRAMES_PER_IMAGE - 8;
-        if (videoStyle === "split") {
-          // Flash cut — white flash instead of light leak
+        // Use renderSeed + image index for unique hue/seed per render
+        const leakSeed = ((renderSeed + i * 13 + 7) % 20) + 1;
+        const hue = ((renderSeed * 37 + i * 73) % 360);
+
+        if (transitionMp4 && i === 0) {
+          // Use the selected transition MP4 asset on the first cut
           return (
-            <Sequence key={`trans-${i}`} from={transFrame} durationInFrames={6} premountFor={3}>
-              <AbsoluteFill style={{ backgroundColor: "#fff", opacity: interpolate(useCurrentFrame(), [0, 3, 6], [0, 1, 0], { extrapolateRight: "clamp" }) }} />
-            </Sequence>
-          );
-        }
-        if (videoStyle === "cinematic") {
-          // Slow cross-dissolve — softer light leak
-          return (
-            <Sequence key={`trans-${i}`} from={transFrame - 4} durationInFrames={24} premountFor={5}>
+            <Sequence key={`trans-mp4-${i}`} from={transFrame - 4} durationInFrames={30} premountFor={10}>
               <AbsoluteFill>
-                <LightLeak durationInFrames={24} seed={i + 10} hueShift={30} />
+                <Video
+                  src={staticFile(transitionMp4)}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "screen" }}
+                  volume={0}
+                />
               </AbsoluteFill>
             </Sequence>
           );
         }
-        // classic + neon — standard light leak with hue variation
+
+        if (videoStyle === "split") {
+          // Flash cut — white flash
+          return (
+            <Sequence key={`trans-${i}`} from={transFrame} durationInFrames={6} premountFor={3}>
+              <AbsoluteFill>
+                <div style={{ position: "absolute", inset: 0, backgroundColor: "#fff",
+                  opacity: interpolate(useCurrentFrame(), [0, 3, 6], [0, 1, 0], { extrapolateRight: "clamp" }) }} />
+              </AbsoluteFill>
+            </Sequence>
+          );
+        }
+        if (videoStyle === "cinematic") {
+          return (
+            <Sequence key={`trans-${i}`} from={transFrame - 4} durationInFrames={24} premountFor={5}>
+              <AbsoluteFill>
+                <LightLeak durationInFrames={24} seed={leakSeed} hueShift={Math.min(hue, 359)} />
+              </AbsoluteFill>
+            </Sequence>
+          );
+        }
+        // classic + neon — light leak with renderSeed-driven hue
         return (
           <Sequence key={`leak-${i}`} from={transFrame} durationInFrames={18} premountFor={5}>
             <AbsoluteFill>
-              <LightLeak durationInFrames={18} seed={i + 1} hueShift={(videoStyle === "neon" ? i * 120 : i * 60) % 360} />
+              <LightLeak durationInFrames={18} seed={leakSeed} hueShift={Math.min(hue, 359)} />
             </AbsoluteFill>
           </Sequence>
         );
@@ -652,6 +677,18 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
               lineHeight: 1,
             }}>
               ↓
+            </div>
+
+            {/* eBay logo — fades in at frame 15, slide with CTA */}
+            <div style={{
+              opacity: interpolate(frame, [15, 30], [0, 0.9], { extrapolateRight: "clamp" }),
+              transform: `translateY(${ctaSlide}px)`,
+              marginTop: 8,
+            }}>
+              <Img
+                src={staticFile("assets/brands/ebay-logo-white.png")}
+                style={{ width: 180, height: "auto" }}
+              />
             </div>
           </div>
         </AbsoluteFill>

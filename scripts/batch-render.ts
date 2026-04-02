@@ -15,6 +15,7 @@ import { writeFileSync, mkdirSync, readFileSync, readdirSync, statSync } from "f
 import https from "https";
 import http from "http";
 import path from "path";
+import Anthropic from "@anthropic-ai/sdk";
 
 const RAILWAY_BASE = "https://ebay-endpoint-production.up.railway.app";
 
@@ -57,17 +58,50 @@ let usedCTAs: string[] = [];
 let lastPaletteIdx = -1;
 let lastMusicTrack = "";
 
-const VIDEO_STYLE_ROTATION = ["classic", "neon", "cinematic", "split"] as const;
+const VIDEO_STYLES = ["classic", "neon", "cinematic", "split"] as const;
 
-function pickPalette(index: number) {
-  let idx = index % PALETTES.length;
+// Transition MP4 categories to randomly pick from
+const TRANSITION_CATEGORIES = ["wipes", "flashes", "glitch", "leaks", "shapes"] as const;
+
+function scanTransitions(): string[] {
+  try {
+    const base = "public/assets/transitions";
+    const all: string[] = [];
+    for (const cat of TRANSITION_CATEGORIES) {
+      const dir = `${base}/${cat}`;
+      try {
+        readdirSync(dir)
+          .filter((f) => f.endsWith(".mp4"))
+          .forEach((f) => all.push(`assets/transitions/${cat}/${f}`));
+      } catch {}
+    }
+    return all;
+  } catch { return []; }
+}
+
+let lastStyleIdx = -1;
+let lastTransitionIdx = -1;
+
+function pickPalette(seed: number) {
+  let idx = seed % PALETTES.length;
   if (idx === lastPaletteIdx) idx = (idx + 1) % PALETTES.length;
   lastPaletteIdx = idx;
   return PALETTES[idx];
 }
 
-function pickVideoStyle(index: number): string {
-  return VIDEO_STYLE_ROTATION[index % VIDEO_STYLE_ROTATION.length];
+function pickVideoStyle(seed: number): string {
+  let idx = seed % VIDEO_STYLES.length;
+  if (idx === lastStyleIdx) idx = (idx + 1) % VIDEO_STYLES.length;
+  lastStyleIdx = idx;
+  return VIDEO_STYLES[idx];
+}
+
+function pickTransitionMp4(transitions: string[], seed: number): string {
+  if (transitions.length === 0) return "";
+  let idx = seed % transitions.length;
+  if (idx === lastTransitionIdx) idx = (idx + 1) % transitions.length;
+  lastTransitionIdx = idx;
+  return transitions[idx];
 }
 
 function pickHook(title: string, index: number): string {
@@ -267,19 +301,23 @@ async function renderListing(row: ListingRow, index: number, total: number) {
     ...images.additionalImages.map((u: string) => u.replace("s-l225", "s-l500")),
   ].filter(Boolean);
 
-  // Pick randomised elements — no consecutive repeats
-  const musicFiles = getMusicFiles();
-  const palette    = pickPalette(index);
-  const hook       = pickHook(row.title, index);
-  const ctaText    = pickCTA(platform, storeName!, index);
-  const audioFile  = `music/${pickMusic(musicFiles, index)}`;
+  // Math.random() ensures different selections on EVERY render run
+  const rand = Math.floor(Math.random() * 9999) + index * 100;
+  const renderSeed = rand;
 
-  console.log(`   🎨 Palette: ${palette.name} | 🪝 Hook: "${hook}"`);
-  console.log(`   📣 CTA: "${ctaText}" | 🎵 ${audioFile}`);
+  const musicFiles    = getMusicFiles();
+  const transitions   = scanTransitions();
+  const palette       = pickPalette(rand);
+  const videoStyle    = pickVideoStyle(rand + 3);
+  const transitionMp4 = pickTransitionMp4(transitions, rand + 7);
+  const hook          = pickHook(row.title, rand % 15);
+  const ctaText       = pickCTA(platform, storeName!, rand % 8);
+  const audioFile     = `music/${pickMusic(musicFiles, rand % musicFiles.length)}`;
+
+  console.log(`   🎨 ${palette.name} | 🎬 ${videoStyle} | 🎞️  ${transitionMp4.split("/").pop() || "light-leak"}`);
+  console.log(`   🪝 "${hook}" | 📣 "${ctaText}"`);
+  console.log(`   🎵 ${audioFile}`);
   console.log(`   Price: $${row.price} | Condition: ${row.condition} | Images: ${allImageUrls.length}`);
-
-  const videoStyle = pickVideoStyle(index);
-  console.log(`   🎬 Style: ${videoStyle}`);
 
   const props = {
     storeName:    storeName!,
@@ -295,8 +333,10 @@ async function renderListing(row: ListingRow, index: number, total: number) {
     ctaText,
     accentColor:  palette.accent,
     bgColor:      palette.bg,
-    categoryName: row.categoryName || "",
+    categoryName:  row.categoryName || "",
     videoStyle,
+    transitionMp4,
+    renderSeed,
   };
 
   const titleSlug = row.title
@@ -315,7 +355,115 @@ async function renderListing(row: ListingRow, index: number, total: number) {
 
   try { require("fs").unlinkSync(propsFile); } catch {}
   console.log(`   ✅ Saved: ${outFile}`);
+
+  // Generate and save platform captions alongside the video
+  const captionFile = outFile.replace(".mp4", "-captions.txt");
+  console.log("   ✍️  Generating captions...");
+  try {
+    const captions = await generateCaptions(props, storeName!);
+    writeFileSync(captionFile, captions);
+    console.log(`   ✅ Captions: ${path.basename(captionFile)}`);
+  } catch (err) {
+    console.warn(`   ⚠️  Caption generation failed: ${(err as Error).message}`);
+  }
+
   return outFile;
+}
+
+// ── Caption generator using Claude API ────────────────────────────────────
+async function generateCaptions(
+  props: {
+    title: string; price: number; condition: string;
+    storeName: string; hook: string; ctaText: string;
+    categoryName?: string; brand?: string;
+  },
+  store: string
+): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+
+  const client = new Anthropic({ apiKey });
+
+  const productContext = [
+    `Title: ${props.title}`,
+    `Price: $${props.price}`,
+    `Condition: ${props.condition}`,
+    props.brand ? `Brand: ${props.brand}` : "",
+    props.categoryName ? `Category: ${props.categoryName}` : "",
+    `Store: ${store} (eBay)`,
+    `Hook used: ${props.hook}`,
+    `CTA used: ${props.ctaText}`,
+  ].filter(Boolean).join("\n");
+
+  const response = await client.messages.create({
+    model: "claude-opus-4-6",
+    max_tokens: 1024,
+    messages: [{
+      role: "user",
+      content: `You are a social media copywriter specializing in eBay reseller content.
+
+Product details:
+${productContext}
+
+Write two platform-optimized captions for this product video. Be punchy, authentic, and conversion-focused.
+
+INSTAGRAM CAPTION:
+- 3-5 sentences max, clean aesthetic tone
+- Lead with the value/style hook
+- Include price naturally in the copy
+- 15-20 targeted hashtags (mix of niche + broad)
+- End with soft CTA pointing to link in bio
+
+TIKTOK CAPTION:
+- 1-2 punchy lines only (TikTok shows less text)
+- Casual, trend-aware language
+- 5-8 hashtags max (#fyp #thrift #ebay etc.)
+- Include the price if it's a good deal
+- No emojis overload — max 3
+
+Return ONLY this exact format, no extra commentary:
+
+---INSTAGRAM---
+[caption here]
+
+---TIKTOK---
+[caption here]
+
+---HASHTAGS (INSTAGRAM)---
+[hashtags only]
+
+---HASHTAGS (TIKTOK)---
+[hashtags only]`,
+    }],
+  });
+
+  const text = response.content
+    .filter((b) => b.type === "text")
+    .map((b) => (b as any).text)
+    .join("");
+
+  const now = new Date().toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+
+  return `═══════════════════════════════════════════════════════════
+VIDEO CAPTIONS — ${props.title.slice(0, 60)}
+Generated: ${now}
+Store: ${store} on eBay
+Price: $${props.price} | Condition: ${props.condition}
+═══════════════════════════════════════════════════════════
+
+${text}
+
+═══════════════════════════════════════════════════════════
+POSTING TIPS:
+• Post TikTok first (higher organic reach), then Instagram Reels
+• Best posting times: Tue–Thu 7–9pm, Sat 10am–12pm (your timezone)
+• Reply to every comment in first 30 min to boost algorithm
+• Use TikTok caption + 5 hashtags for Instagram Stories
+• Add eBay item URL to link-in-bio before posting
+═══════════════════════════════════════════════════════════
+`;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────

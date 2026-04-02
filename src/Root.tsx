@@ -123,6 +123,8 @@ export const RemotionRoot: React.FC = () => {
           bgColor: "#111111",
           categoryName: "Dresses",
           videoStyle: "classic" as const,
+          transitionMp4: "",
+          renderSeed: 0,
         }}
       />
 
