@@ -366,7 +366,10 @@ async function renderListing(row: ListingRow, index: number, total: number) {
   const captionFile = outFile.replace(".mp4", "-captions.txt");
   console.log("   ✍️  Generating captions...");
   try {
-    const captions = await generateCaptions(props, storeName!);
+    const captions = await generateCaptions(
+      { ...props, audioFile, videoStyle, priceAnimationId },
+      storeName!
+    );
     writeFileSync(captionFile, captions);
     console.log(`   ✅ Captions: ${path.basename(captionFile)}`);
   } catch (err) {
@@ -376,100 +379,167 @@ async function renderListing(row: ListingRow, index: number, total: number) {
   return outFile;
 }
 
-// ── Caption generator using Claude API ────────────────────────────────────
+// ── Template-based caption fallback (no API key needed) ───────────────────
+function buildTemplateCaptions(
+  props: { title: string; price: number; storeName: string; hook: string;
+           ctaText: string; brand?: string; categoryName?: string; audioFile: string;
+           videoStyle: string; priceAnimationId: string; },
+  store: string
+): string {
+  const cleanTitle = props.title.split("|")[0].trim();
+  const brand = props.brand || "";
+  const cat   = props.categoryName || "fashion";
+  const price = `$${props.price.toFixed(2)}`;
+  const s = store;
+
+  // Platform-specific caption copy
+  const igCaptions = [
+    `This ${brand} find just dropped at ${s} and it is absolutely stunning ✨ ${cleanTitle.slice(0,50)} — yours for only ${price}. Quality pre-loved fashion at a fraction of the retail price. Shop the link in bio before it's gone 👇`,
+    `We don't gatekeep deals at ${s} 🛍️ ${price} for this gorgeous ${brand || cat} piece. The kind of find that makes your wardrobe and your wallet happy. Link in bio — tap before someone else grabs it.`,
+    `Sustainable fashion never looked this good. ${cleanTitle.slice(0,55)} available now at ${s} for ${price}. Shop pre-loved, shop smart. Link in bio 💫`,
+  ];
+  const ttCaptions = [
+    `${price}?? ${s} really said less is more 😭 #ebay #thriftfinds #fyp`,
+    `POV: You found this at ${s} for ${price} 👀 link in bio #ebayfinds #thrift #fashion`,
+    `${s} dropping ${price} ${cat} and I can't 🔥 #ebay #resell #fyp #fashion`,
+  ];
+
+  // Deterministic pick based on title length
+  const idx = props.title.length % 3;
+  const igCaption  = igCaptions[idx];
+  const ttCaption  = ttCaptions[idx];
+
+  const igHashtags = [
+    `#${s.toLowerCase()} #ebay #ebayfinds #thriftedstyle #secondhandfashion`,
+    `#preloved #sustainablefashion #consignmentshop #resale #vintagestyle`,
+    `#ootd #fashionfinds #dealoftheday #shopsmall #thrift`,
+    `#${brand.toLowerCase().replace(/\s+/g,"") || "fashion"} #${cat.toLowerCase().replace(/\s+/g,"")}`
+  ].join(" ");
+
+  const ttHashtags = `#fyp #ebay #ebayfinds #thrift #${cat.toLowerCase().replace(/\s+/g,"")} #fashion #resell`;
+
+  return `${igCaption}\n\n${igHashtags}
+
+---TIKTOK---
+${ttCaption}
+
+${ttHashtags}`;
+}
+
+// ── Caption generator — Claude API when key set, template fallback otherwise ─
 async function generateCaptions(
   props: {
     title: string; price: number; condition: string;
     storeName: string; hook: string; ctaText: string;
     categoryName?: string; brand?: string;
+    audioFile: string; videoStyle: string; priceAnimationId: string;
   },
   store: string
 ): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
-
-  const client = new Anthropic({ apiKey });
-
-  const productContext = [
-    `Title: ${props.title}`,
-    `Price: $${props.price}`,
-    `Condition: ${props.condition}`,
-    props.brand ? `Brand: ${props.brand}` : "",
-    props.categoryName ? `Category: ${props.categoryName}` : "",
-    `Store: ${store} (eBay)`,
-    `Hook used: ${props.hook}`,
-    `CTA used: ${props.ctaText}`,
-  ].filter(Boolean).join("\n");
-
-  const response = await client.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 1024,
-    messages: [{
-      role: "user",
-      content: `You are a social media copywriter specializing in eBay reseller content.
-
-Product details:
-${productContext}
-
-Write two platform-optimized captions for this product video. Be punchy, authentic, and conversion-focused.
-
-INSTAGRAM CAPTION:
-- 3-5 sentences max, clean aesthetic tone
-- Lead with the value/style hook
-- Include price naturally in the copy
-- 15-20 targeted hashtags (mix of niche + broad)
-- End with soft CTA pointing to link in bio
-
-TIKTOK CAPTION:
-- 1-2 punchy lines only (TikTok shows less text)
-- Casual, trend-aware language
-- 5-8 hashtags max (#fyp #thrift #ebay etc.)
-- Include the price if it's a good deal
-- No emojis overload — max 3
-
-Return ONLY this exact format, no extra commentary:
-
----INSTAGRAM---
-[caption here]
-
----TIKTOK---
-[caption here]
-
----HASHTAGS (INSTAGRAM)---
-[hashtags only]
-
----HASHTAGS (TIKTOK)---
-[hashtags only]`,
-    }],
-  });
-
-  const text = response.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as any).text)
-    .join("");
-
   const now = new Date().toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
   });
 
-  return `═══════════════════════════════════════════════════════════
-VIDEO CAPTIONS — ${props.title.slice(0, 60)}
+  const header = `═══════════════════════════════════════════════════════════
+VIDEO POST GUIDE — ${props.title.split("|")[0].trim().slice(0, 60)}
 Generated: ${now}
-Store: ${store} on eBay
-Price: $${props.price} | Condition: ${props.condition}
-═══════════════════════════════════════════════════════════
+Store: ${store} on eBay  |  Price: $${props.price.toFixed(2)}
+Video Style: ${props.videoStyle}  |  Price Anim: ${props.priceAnimationId}
+Hook Used: ${props.hook}
+═══════════════════════════════════════════════════════════`;
 
-${text}
-
+  const footer = `
 ═══════════════════════════════════════════════════════════
+LIBRARIES & ASSETS USED IN THIS VIDEO:
+  🎵 Music:        ${props.audioFile}
+  🎬 Style:        ${props.videoStyle} (${
+    props.videoStyle === "neon"      ? "scanlines overlay + electric glow" :
+    props.videoStyle === "cinematic" ? "film grain + letterbox bars" :
+    props.videoStyle === "split"     ? "VHS static + flash cuts" :
+                                       "clean + light leaks"})
+  💰 Price Anim:   ${props.priceAnimationId}
+  🪄 Hook Type:    ${props.hook}
+  📣 CTA:          ${props.ctaText}
+
 POSTING TIPS:
-• Post TikTok first (higher organic reach), then Instagram Reels
-• Best posting times: Tue–Thu 7–9pm, Sat 10am–12pm (your timezone)
-• Reply to every comment in first 30 min to boost algorithm
-• Use TikTok caption + 5 hashtags for Instagram Stories
-• Add eBay item URL to link-in-bio before posting
-═══════════════════════════════════════════════════════════
-`;
+  • Post TikTok FIRST for higher organic reach, then Instagram Reels
+  • Best times: Tue–Thu 7–9pm EST  |  Sat–Sun 10am–12pm EST
+  • Reply to ALL comments in first 30 min to boost the algorithm
+  • Pin your eBay store link in bio BEFORE posting
+  • Use the TikTok caption + 3-5 hashtags for Instagram Stories
+  • Test both captions below as A/B — track which drives more clicks
+
+CAPTION PERFORMANCE TRACKING:
+  • Check TikTok Analytics → Video → Traffic Source after 24h
+  • Instagram: Professional Dashboard → Reach → Follows from Post
+  • Goal: 3–5% click-through to link-in-bio
+═══════════════════════════════════════════════════════════`;
+
+  // ── Try Claude API if key is available ──────────────────────────────────
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (apiKey) {
+    try {
+      const client = new Anthropic({ apiKey });
+      const productContext = [
+        `Title: ${props.title.split("|")[0].trim()}`,
+        `Price: $${props.price.toFixed(2)}`,
+        props.brand       ? `Brand: ${props.brand}`             : "",
+        props.categoryName? `Category: ${props.categoryName}`   : "",
+        `Store: ${store} on eBay`,
+        `Video hook: ${props.hook}`,
+        `CTA: ${props.ctaText}`,
+      ].filter(Boolean).join("\n");
+
+      const response = await client.messages.create({
+        model: "claude-opus-4-6",
+        max_tokens: 1200,
+        messages: [{ role: "user", content:
+`You are an elite social media copywriter for an eBay fashion reseller store.
+
+Product:
+${productContext}
+
+Write two READY-TO-POST captions. Be specific to this item — no generic filler.
+
+INSTAGRAM CAPTION (3-4 punchy sentences):
+- Open with the style/value angle, not the item name
+- Include price naturally mid-copy
+- Conversational but polished tone
+- End: "Link in bio 👇" or "Shop the link in bio"
+- Then 18-22 targeted hashtags on a new line
+
+TIKTOK CAPTION (1-2 lines only — TikTok truncates at ~150 chars):
+- Ultra punchy, trend-aware, casual
+- Include price if it shocks
+- Then 6-8 hashtags including #fyp #ebay
+
+Format EXACTLY as:
+---INSTAGRAM---
+[caption + hashtags]
+
+---TIKTOK---
+[caption + hashtags]` }],
+      });
+
+      const aiText = response.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as any).text).join("");
+
+      return `${header}\n\n${aiText}${footer}`;
+    } catch (err) {
+      console.warn(`   ⚠️  Claude API error — using template captions: ${(err as Error).message}`);
+    }
+  }
+
+  // ── Template fallback (always works, no API key needed) ──────────────────
+  const templateCaptions = buildTemplateCaptions(
+    { ...props, audioFile: props.audioFile, videoStyle: props.videoStyle, priceAnimationId: props.priceAnimationId },
+    store
+  );
+
+  return `${header}
+
+${templateCaptions}${footer}`;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
