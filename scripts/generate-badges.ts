@@ -15,7 +15,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 
 function save(canvas: ReturnType<typeof createCanvas>, name: string) {
   const file = path.join(OUT_DIR, `${name}.png`);
-  writeFileSync(file, canvas.toBuffer("image/png"));
+  writeFileSync(file, canvas.toBuffer("image/png") as unknown as NodeJS.ArrayBufferView);
   console.log(`✅ ${name}.png`);
 }
 

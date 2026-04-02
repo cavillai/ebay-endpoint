@@ -1,6 +1,14 @@
 import React from "react";
 import { Composition, Still } from "remotion";
 import { EbayProductVideo, ebayProductSchema } from "./EbayProductVideo";
+import {
+  WipeLeft, WipeRight, WipeUp, WipeDiagonal,
+  WhiteFlash, BlackFlash, ColorFlash,
+  Glitch01, Glitch02, Glitch03,
+  LeakOrange, LeakWhite, LeakGold, LeakPink,
+  GrainOverlay, ScanlinesOverlay, VHSStatic,
+  CircleReveal, SlashReveal, InkReveal,
+} from "./transitions";
 import { myCompSchema, PreviewCard } from "./PreviewCard";
 import { ProductShowcase, productShowcaseSchema } from "./ProductShowcase";
 import { ProductCarousel, productCarouselSchema } from "./ProductCarousel";
@@ -64,6 +72,34 @@ export const RemotionRoot: React.FC = () => {
         schema={productCarouselSchema}
         defaultProps={{ storeName: "My Store", framesPerProduct: 90, products: [] }}
       />
+
+      {/* ─── Transition Graphics Library (1080x1920) ─────────────────── */}
+      {/* Wipes */}
+      {[WipeLeft, WipeRight, WipeUp, WipeDiagonal].map((C, i) => (
+        <Composition key={i} id={["WipeLeft","WipeRight","WipeUp","WipeDiagonal"][i]} component={C as any}
+          width={1080} height={1920} fps={30} durationInFrames={30} defaultProps={{}} />
+      ))}
+      {/* Flashes */}
+      <Composition id="WhiteFlash" component={WhiteFlash} width={1080} height={1920} fps={30} durationInFrames={20} defaultProps={{}} />
+      <Composition id="BlackFlash" component={BlackFlash} width={1080} height={1920} fps={30} durationInFrames={20} defaultProps={{}} />
+      <Composition id="ColorFlash" component={ColorFlash as any} width={1080} height={1920} fps={30} durationInFrames={20} defaultProps={{ color: "#FFD700" }} />
+      {/* Glitch */}
+      {[Glitch01, Glitch02, Glitch03].map((C, i) => (
+        <Composition key={i} id={`Glitch0${i+1}`} component={C} width={1080} height={1920} fps={30} durationInFrames={30} defaultProps={{}} />
+      ))}
+      {/* Light Leaks */}
+      <Composition id="LeakOrange" component={LeakOrange} width={1080} height={1920} fps={30} durationInFrames={45} defaultProps={{}} />
+      <Composition id="LeakWhite"  component={LeakWhite}  width={1080} height={1920} fps={30} durationInFrames={45} defaultProps={{}} />
+      <Composition id="LeakGold"   component={LeakGold}   width={1080} height={1920} fps={30} durationInFrames={45} defaultProps={{}} />
+      <Composition id="LeakPink"   component={LeakPink}   width={1080} height={1920} fps={30} durationInFrames={45} defaultProps={{}} />
+      {/* Overlays */}
+      <Composition id="GrainOverlay"    component={GrainOverlay}    width={1080} height={1920} fps={30} durationInFrames={60} defaultProps={{}} />
+      <Composition id="ScanlinesOverlay" component={ScanlinesOverlay} width={1080} height={1920} fps={30} durationInFrames={60} defaultProps={{}} />
+      <Composition id="VHSStatic"       component={VHSStatic}        width={1080} height={1920} fps={30} durationInFrames={60} defaultProps={{}} />
+      {/* Shape Reveals */}
+      <Composition id="CircleReveal" component={CircleReveal} width={1080} height={1920} fps={30} durationInFrames={45} defaultProps={{}} />
+      <Composition id="SlashReveal"  component={SlashReveal}  width={1080} height={1920} fps={30} durationInFrames={45} defaultProps={{}} />
+      <Composition id="InkReveal"    component={InkReveal}    width={1080} height={1920} fps={30} durationInFrames={45} defaultProps={{}} />
 
       {/* ─── EbayProductVideo (Master Prompt v1.0) ───────────────────── */}
       <Composition

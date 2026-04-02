@@ -14,6 +14,7 @@
     "@remotion/google-fonts": "^4.0.443",
     "@remotion/light-leaks": "^4.0.443",
     "@remotion/media": "^4.0.443",
+    "@remotion/noise": "^4.0.443",
     "@remotion/renderer": "4.0.443",
     "@remotion/shapes": "^4.0.443",
     "@remotion/transitions": "^4.0.443",
