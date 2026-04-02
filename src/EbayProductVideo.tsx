@@ -173,19 +173,32 @@ const ImageSlide: React.FC<{
         background: "linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 22%, transparent 72%, rgba(0,0,0,0.5) 100%)",
       }} />
 
-      {/* Store watermark — top-left safe zone */}
+      {/* Store watermark — top-left, prominent, pill background */}
       <div style={{
         position: "absolute",
         top: SAFE_TOP + 10,
-        left: SAFE_SIDES + 10,
-        fontFamily: inter,
-        fontSize: 28,
-        fontWeight: 600,
-        color: "rgba(255,255,255,0.6)",
-        letterSpacing: 3,
-        textTransform: "uppercase",
+        left: SAFE_SIDES,
+        backgroundColor: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        borderRadius: 100,
+        paddingLeft: 22,
+        paddingRight: 22,
+        paddingTop: 10,
+        paddingBottom: 10,
+        border: `1.5px solid rgba(255,255,255,0.25)`,
       }}>
-        {storeName}
+        <span style={{
+          fontFamily: bebas,
+          fontSize: 44,
+          fontWeight: 900,
+          color: "#FFFFFF",
+          letterSpacing: 4,
+          textTransform: "uppercase",
+          textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+        }}>
+          {storeName}
+        </span>
       </div>
 
       {/* Progress dots — inside bottom safe zone */}
@@ -655,40 +668,56 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             alignItems: "center",
             gap: 20,
           }}>
-            {/* CTA text */}
+            {/* "[StoreName] on eBay" — the primary CTA */}
             <div style={{
               fontFamily: bebas,
-              fontSize: 56,
-              color: accentColor,
-              letterSpacing: 3,
+              fontSize: 64,
+              color: "#FFFFFF",
+              letterSpacing: 4,
               textAlign: "center",
               transform: `translateY(${ctaSlide}px)`,
-              textShadow: "0 2px 16px rgba(0,0,0,0.95)",
+              textShadow: `0 0 30px ${accentColor}80, 0 2px 16px rgba(0,0,0,0.95)`,
               lineHeight: 1.1,
+            }}>
+              {storeName}{" "}
+              <span style={{ color: accentColor }}>on eBay</span>
+            </div>
+
+            {/* Urgency sub-line (ctaText e.g. "GRAB IT BEFORE IT'S GONE") */}
+            <div style={{
+              fontFamily: inter,
+              fontSize: 32,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.8)",
+              letterSpacing: 2,
+              textAlign: "center",
+              transform: `translateY(${ctaSlide}px)`,
+              textTransform: "uppercase",
+              lineHeight: 1,
+              opacity: interpolate(frame, [20, 35], [0, 1], { extrapolateRight: "clamp" }),
             }}>
               {ctaText}
             </div>
 
+            {/* eBay logo */}
+            <div style={{
+              opacity: interpolate(frame, [15, 30], [0, 0.9], { extrapolateRight: "clamp" }),
+              transform: `translateY(${ctaSlide}px)`,
+            }}>
+              <Img
+                src={staticFile("assets/brands/ebay-logo-white.png")}
+                style={{ width: 160, height: "auto" }}
+              />
+            </div>
+
             {/* Bouncing arrow */}
             <div style={{
-              fontSize: 64,
+              fontSize: 60,
               transform: `translateY(${bouncingArrow}px)`,
               color: accentColor,
               lineHeight: 1,
             }}>
               ↓
-            </div>
-
-            {/* eBay logo — fades in at frame 15, slide with CTA */}
-            <div style={{
-              opacity: interpolate(frame, [15, 30], [0, 0.9], { extrapolateRight: "clamp" }),
-              transform: `translateY(${ctaSlide}px)`,
-              marginTop: 8,
-            }}>
-              <Img
-                src={staticFile("assets/brands/ebay-logo-white.png")}
-                style={{ width: 180, height: "auto" }}
-              />
             </div>
           </div>
         </AbsoluteFill>
