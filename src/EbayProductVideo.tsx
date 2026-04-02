@@ -306,15 +306,22 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
     return interpolate(s, [0, 1], [400, 0]);
   };
 
-  // Scene 4 badges — condition appears exactly ONCE here, nowhere else
-  const conditionColor = condition.toLowerCase().includes("excellent") || condition.toLowerCase().includes("like new")
-    ? "#00C851"
-    : condition.toLowerCase().includes("good") ? "#FFD700" : "#FF8C00";
+  // ── Adjective library — replaces raw condition label in Scene 4 ──────────
+  const ADJECTIVES = [
+    "Quality",     "Stylish",   "Timeless",   "Elevated",
+    "Curated",     "Refined",   "Effortless", "Classic",
+    "Chic",        "Polished",  "Luxe",       "Sleek",
+    "Versatile",   "Impeccable","Statement",  "Coveted",
+    "Pre-loved",   "Iconic",    "Fresh",      "Sustainable",
+  ];
+  // Deterministic pick per product title + renderSeed so it varies per render
+  const adjSeed = title.split("").reduce((a, c) => a + c.charCodeAt(0), 0) + renderSeed;
+  const adjective = ADJECTIVES[adjSeed % ADJECTIVES.length];
 
   const detailBadges = [
-    brand ? { label: brand, color: accentColor, textColor: "#000", delay: 0 } : null,
-    size  ? { label: `Size ${size}`, color: "#FFFFFF", textColor: "#000", delay: 12 } : null,
-    { label: condition, color: conditionColor, textColor: "#000", delay: size ? 24 : brand ? 12 : 0 },
+    brand     ? { label: brand,           color: accentColor, textColor: "#000", delay: 0  } : null,
+    size      ? { label: `Size ${size}`,  color: "#FFFFFF",   textColor: "#000", delay: 12 } : null,
+    adjective ? { label: adjective,       color: "#FFD700",   textColor: "#000", delay: size ? 24 : brand ? 12 : 0 } : null,
   ].filter(Boolean) as Array<{ label: string; color: string; textColor: string; delay: number }>;
 
 
