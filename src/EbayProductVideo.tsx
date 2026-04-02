@@ -243,6 +243,27 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   const allImages = imageUrls.filter(Boolean);
   const FRAMES_PER_IMAGE = Math.floor(210 / allImages.length);
   const style = VIDEO_STYLES[videoStyle];
+
+  // Style-specific overlay asset and text treatment
+  const STYLE_OVERLAY: Record<string, string> = {
+    classic:   "",                                       // no overlay
+    neon:      "assets/transitions/overlays/scanlines.mp4",
+    cinematic: "assets/transitions/overlays/grain-overlay.mp4",
+    split:     "assets/transitions/overlays/vhs-static.mp4",
+  };
+  const overlayAsset = STYLE_OVERLAY[videoStyle] || "";
+
+  // Style-specific price card colors
+  const STYLE_PRICE_COLOR: Record<string, string> = {
+    classic:   "#00FF88",
+    neon:      accentColor,
+    cinematic: "#FFFFFF",
+    split:     "#FFD700",
+  };
+  const priceColor = STYLE_PRICE_COLOR[videoStyle] || "#00FF88";
+
+  // Cinematic letterbox bars (top/bottom 80px black bars)
+  const showLetterbox = videoStyle === "cinematic";
   const lastImage  = allImages[allImages.length - 1];
   const firstImage = allImages[0];
 
@@ -310,19 +331,44 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", fontFamily: inter, overflow: "hidden" }}>
 
-      {/* ── AUDIO: volume duck during gallery captions ── */}
+      {/* ── AUDIO: starts immediately at frame 0, ducks during gallery ── */}
+      {/* f is audio-relative frames — use composition frame values directly */}
       <Audio
         src={staticFile(audioFile)}
         volume={(f) =>
           interpolate(
             f,
-            [0, 20, GALLERY_START * fps, (GALLERY_START + 10) * fps, PRICE_START * fps, (PRICE_START + 10) * fps],
-            [0.65, 0.65, 0.2, 0.2, 0.65, 0.65],
+            [0, 6,              // quick fade-in so audio hits immediately
+             GALLERY_START, GALLERY_START + 8,   // duck when gallery captions appear
+             PRICE_START - 5,  PRICE_START + 5], // restore before price slam
+            [0, 0.68, 0.68, 0.22, 0.22, 0.68],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
           )
         }
         loop
       />
+
+      {/* ── Style overlay: scanlines / grain / vhs (looped, full video) ── */}
+      {overlayAsset && (
+        <AbsoluteFill style={{ pointerEvents: "none", zIndex: 50 }}>
+          <Video
+            src={staticFile(overlayAsset)}
+            style={{ width: "100%", height: "100%", objectFit: "cover",
+              opacity: videoStyle === "neon" ? 0.18 : videoStyle === "cinematic" ? 0.1 : 0.12,
+              mixBlendMode: "screen" }}
+            volume={0}
+            loop
+          />
+        </AbsoluteFill>
+      )}
+
+      {/* ── Cinematic letterbox bars (top + bottom) ── */}
+      {showLetterbox && (
+        <>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 80, backgroundColor: "#000", zIndex: 49 }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, backgroundColor: "#000", zIndex: 49 }} />
+        </>
+      )}
 
       {/* ════════════════════════════════════════════════════════════
           SCENE 1 — HOOK (frames 0–60)
@@ -368,19 +414,25 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             }} />
           )}
 
-          {/* Hook text — Bebas Neue, size from style config, springs from 4x */}
+          {/* Hook text — style-specific size, shadow, entrance */}
           <div style={{
             fontFamily: bebas,
             fontSize: style.hookFontSize,
-            color: "#FFFFFF",
+            color: videoStyle === "neon" ? accentColor : "#FFFFFF",
             letterSpacing: style.hookLetterSpacing,
             textAlign: "center",
             paddingLeft: SAFE_SIDES,
             paddingRight: SAFE_SIDES,
-            transform: `scale(${hookScale})`,
+            transform: videoStyle === "cinematic"
+              ? `translateY(${interpolate(hookScale, [1, 4], [0, -80])}px) scale(${hookScale})`
+              : `scale(${hookScale})`,
             lineHeight: 1.1,
             textShadow: videoStyle === "neon"
-              ? `0 0 20px ${accentColor}, 0 0 60px ${accentColor}80, 0 0 100px ${accentColor}40`
+              ? `0 0 20px ${accentColor}, 0 0 60px ${accentColor}80, 0 0 120px ${accentColor}40, 0 0 200px ${accentColor}20`
+              : videoStyle === "cinematic"
+              ? `0 2px 0 rgba(255,255,255,0.2), 0 4px 30px rgba(0,0,0,0.9)`
+              : videoStyle === "split"
+              ? `4px 4px 0 ${accentColor}, -4px -4px 0 ${accentColor}88`
               : `0 0 40px ${accentColor}`,
           }}>
             {hook}
@@ -495,10 +547,10 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
               <div style={{
                 fontFamily: bebas,
                 fontSize: 112,
-                color: accentColor,
+                color: priceColor,
                 fontVariantNumeric: "tabular-nums",
                 lineHeight: 1,
-                textShadow: `0 0 60px ${accentColor}88`,
+                textShadow: `0 0 60px ${priceColor}88`,
               }}>
                 ${displayPrice.toFixed(2)}
               </div>
