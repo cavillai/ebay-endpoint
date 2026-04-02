@@ -16,6 +16,8 @@ import https from "https";
 import http from "http";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
+import dotenv from "dotenv";
+dotenv.config({ quiet: true }); // load .env so ANTHROPIC_API_KEY is available
 
 const RAILWAY_BASE = "https://ebay-endpoint-production.up.railway.app";
 
