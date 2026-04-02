@@ -230,46 +230,81 @@ const DetailsScene: React.FC<{
   );
 };
 
-// ── CTA Scene (4 seconds, cinematic) ─────────────────────────────────────
+// ── Urgency CTA copy pool ─────────────────────────────────────────────────
+const CTA_URGENCY_POOL = [
+  "GRAB IT BEFORE IT'S GONE",
+  "ONLY ONE AVAILABLE",
+  "STILL LIVE ON EBAY",
+  "DON'T MISS THIS",
+  "SELLING FAST — SHOP NOW",
+  "LIVE ON EBAY NOW",
+  "LAST CHANCE — LINK IN BIO",
+  "SELLING OUT FAST",
+];
+export function pickUrgencyCTA(title: string): string {
+  const seed = title.split("").reduce((a, c) => a + c.charCodeAt(0), 0) + 17;
+  return CTA_URGENCY_POOL[seed % CTA_URGENCY_POOL.length];
+}
+
+// ── CTA Scene (v2 — FAIL-SAFE, 4s, high-impact) ───────────────────────────
+// MANDATORY last scene. Store name = largest text in entire video.
+// Text within 9 frames (300ms). Flash-cut transition in. Urgency copy only.
 const CTAScene: React.FC<{
   lastImage: string; storeName: string; brandColor: string;
-  titleFont: string; categoryName?: string;
-}> = ({ lastImage, storeName, brandColor, titleFont, categoryName }) => {
+  titleFont: string; categoryName?: string; urgencyCTA: string;
+}> = ({ lastImage, storeName, brandColor, titleFont, categoryName, urgencyCTA }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const sceneScale = spring({ frame, fps, from: 1.06, to: 1, durationInFrames: 20, config: { stiffness: 180, damping: 14 } });
+  // ── Flash cut transition IN (frames 0-4): white flash enters CTA ──────
+  const flashOpacity = interpolate(frame, [0, 3, 8], [1, 0.6, 0], { extrapolateRight: "clamp" });
+
+  // ── Background zoom: 1.08→1.0 over entire CTA (subtle Ken Burns) ──────
+  const bgScale = interpolate(frame, [0, CTA_FRAMES], [1.08, 1.0], { extrapolateRight: "clamp" });
+
+  // ── Pulsing border ────────────────────────────────────────────────────
   const borderOpacity = Math.sin(frame * 0.12) * 0.5 + 0.5;
-  const arrowY = interpolate(frame % 30, [0, 15, 30], [0, -22, 0], { extrapolateRight: "clamp" });
 
-  // Slam entrances
-  const line1Scale = spring({ frame: Math.max(0, frame - 10), fps, from: 2.2, to: 1, durationInFrames: 15, config: { stiffness: 300, damping: 12 } });
-  const line1Opacity = interpolate(frame, [10, 22], [0, 1], { extrapolateRight: "clamp" });
+  // ── STORE NAME: appears within 9 frames (300ms), pops 1.0→1.1→1.0 ───
+  // Must be LARGEST text in entire video — 120px
+  const storeNameScale = spring({ frame, fps, from: 0.3, to: 1, durationInFrames: 9, config: { stiffness: 400, damping: 18 } });
+  const storeNamePop = interpolate(frame, [0, 9, 25, CTA_FRAMES], [0, 1.1, 1.0, 1.0], { extrapolateRight: "clamp" });
+  const storeNameOpacity = interpolate(frame, [0, 6], [0, 1], { extrapolateRight: "clamp" });
 
-  const line2Slide = spring({ frame: Math.max(0, frame - 28), fps, from: 60, to: 0, durationInFrames: 20, config: { stiffness: 200, damping: 14 } });
-  const line2Opacity = interpolate(frame, [28, 45], [0, 1], { extrapolateRight: "clamp" });
+  // ── Urgency CTA: slams in at frame 18 ────────────────────────────────
+  const urgencyScale = spring({ frame: Math.max(0, frame - 18), fps, from: 2.0, to: 1, durationInFrames: 12, config: { stiffness: 350, damping: 14 } });
+  const urgencyOpacity = interpolate(frame, [18, 28], [0, 1], { extrapolateRight: "clamp" });
+  // Urgency text pulses to reinforce FOMO
+  const urgencyPulse = 1 + Math.sin(frame * 0.18) * 0.04;
 
-  const line3Opacity = interpolate(frame, [50, 65], [0, 1], { extrapolateRight: "clamp" });
-  const starScale = spring({ frame: Math.max(0, frame - 35), fps, from: 0, to: 1, durationInFrames: 22, config: { stiffness: 200, damping: 12 } });
-  const arrowOpacity = interpolate(frame, [55, 70], [0, 1], { extrapolateRight: "clamp" });
+  // ── "on eBay" sub-line at frame 35 ───────────────────────────────────
+  const subLineOpacity = interpolate(frame, [35, 50], [0, 1], { extrapolateRight: "clamp" });
+  const subLineY = interpolate(frame, [35, 50], [20, 0], { extrapolateRight: "clamp" });
 
-  const loopFade = interpolate(frame, [CTA_FRAMES - 12, CTA_FRAMES], [1, 0], { extrapolateRight: "clamp" });
+  // ── Bouncing arrow ────────────────────────────────────────────────────
+  const arrowOpacity = interpolate(frame, [50, 65], [0, 1], { extrapolateRight: "clamp" });
+  const arrowY = interpolate(frame % 28, [0, 14, 28], [0, -20, 0], { extrapolateRight: "clamp" });
 
-  // Category line (e.g. "Women's Clothing")
+  // ── Star badge with category ──────────────────────────────────────────
+  const starScale2 = spring({ frame: Math.max(0, frame - 40), fps, from: 0, to: 1, durationInFrames: 18, config: { stiffness: 200, damping: 12 } });
   const categoryDisplay = categoryName ? categoryName.split(" > ").pop() || categoryName : null;
+
+  // ── Seamless loop fade (last 12 frames → black = matches hook frame 0) ─
+  const loopFade = interpolate(frame, [CTA_FRAMES - 12, CTA_FRAMES], [1, 0], { extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill style={{ opacity: loopFade }}>
-      {/* Background with Ken Burns */}
-      <div style={{ position: "absolute", inset: 0, transform: `scale(${sceneScale})`, overflow: "hidden" }}>
+      {/* Background product image — slow Ken Burns zoom */}
+      <div style={{ position: "absolute", inset: 0, transform: `scale(${bgScale})`, overflow: "hidden" }}>
         <Img src={lastImage} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </div>
 
-      {/* Vignette */}
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, transparent 20%, rgba(0,0,0,0.82) 100%)" }} />
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 28%, transparent 52%, rgba(0,0,0,0.95) 100%)" }} />
+      {/* Heavy dark overlay for contrast — rgba ≥ 0.75 */}
+      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.78)" }} />
+      {/* Radial highlight in center */}
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 45%, ${brandColor}25 0%, transparent 65%)` }} />
 
-      {/* Pulsing brand border */}
+      {/* Pulsing brand border — 4px */}
       <div style={{ position: "absolute", inset: 0, border: `4px solid ${brandColor}`, opacity: borderOpacity, pointerEvents: "none" }} />
       {/* Corner accents */}
       {[
@@ -278,11 +313,14 @@ const CTAScene: React.FC<{
         { bottom: 6, left: 6, borderBottom: `4px solid ${brandColor}`, borderLeft: `4px solid ${brandColor}` },
         { bottom: 6, right: 6, borderBottom: `4px solid ${brandColor}`, borderRight: `4px solid ${brandColor}` },
       ].map((s, i) => (
-        <div key={i} style={{ position: "absolute", width: 52, height: 52, opacity: borderOpacity, ...s }} />
+        <div key={i} style={{ position: "absolute", width: 60, height: 60, opacity: borderOpacity, ...s }} />
       ))}
 
-      {/* ── STAR BADGE top-left with category below it ── */}
-      <div style={{ position: "absolute", top: SAFE_TOP - 20, left: SAFE_SIDES - 15, transform: `scale(${starScale})`, transformOrigin: "top left" }}>
+      {/* ── FLASH CUT overlay (frames 0-8) ── */}
+      <div style={{ position: "absolute", inset: 0, backgroundColor: "#fff", opacity: flashOpacity, pointerEvents: "none" }} />
+
+      {/* ── STAR BADGE (top-left, category below) ── */}
+      <div style={{ position: "absolute", top: SAFE_TOP - 20, left: SAFE_SIDES - 15, transform: `scale(${starScale2})`, transformOrigin: "top left" }}>
         <StarBadge storeName={storeName} size={160} animate />
         {categoryDisplay && (
           <div style={{ marginTop: 6, marginLeft: 8, fontFamily: inter, fontSize: 24, fontWeight: 600, color: "rgba(255,255,255,0.7)", maxWidth: 160 }}>
@@ -291,42 +329,64 @@ const CTAScene: React.FC<{
         )}
       </div>
 
-      {/* ── CTA LINES (bottom half) ── */}
-      {/* Line 1: "GET IT AT" */}
+      {/* ══ PRIMARY CTA BLOCK (vertically centered) ══════════════════════ */}
       <div style={{
-        position: "absolute", bottom: SAFE_BOTTOM + 230, left: 0, right: 0, textAlign: "center",
-        fontFamily: inter, fontSize: 36, fontWeight: 600, color: "rgba(255,255,255,0.75)",
-        letterSpacing: 4, textTransform: "uppercase",
-        transform: `scale(${line1Scale})`, opacity: line1Opacity,
+        position: "absolute", top: 0, bottom: 0, left: SAFE_SIDES, right: SAFE_SIDES,
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: 12,
       }}>
-        Get it at
+
+        {/* STORE NAME — LARGEST TEXT in entire video (120px)
+            Appears within 300ms (9 frames). Scale pop 1.0→1.1→1.0 */}
+        <div style={{
+          fontFamily: titleFont,
+          fontSize: 120,
+          fontWeight: 900,
+          color: "#FFE500",
+          letterSpacing: 3,
+          textAlign: "center",
+          lineHeight: 1,
+          textShadow: `0 0 60px ${brandColor}, 0 0 30px ${brandColor}80, 0 4px 20px rgba(0,0,0,0.9)`,
+          transform: `scale(${Math.min(storeNameScale, storeNamePop)})`,
+          opacity: storeNameOpacity,
+        }}>
+          {storeName}
+        </div>
+
+        {/* URGENCY CTA — slams in at frame 18, pulses */}
+        <div style={{
+          fontFamily: bebas,
+          fontSize: 60,
+          color: "#fff",
+          letterSpacing: 4,
+          textAlign: "center",
+          textShadow: "0 2px 16px rgba(0,0,0,0.95)",
+          transform: `scale(${Math.min(urgencyScale, urgencyPulse)})`,
+          opacity: urgencyOpacity,
+        }}>
+          {urgencyCTA}
+        </div>
+
+        {/* "on eBay" sub-line */}
+        <div style={{
+          fontFamily: inter,
+          fontSize: 36,
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.75)",
+          letterSpacing: 3,
+          textTransform: "uppercase",
+          textAlign: "center",
+          opacity: subLineOpacity,
+          transform: `translateY(${subLineY}px)`,
+        }}>
+          on eBay · Link in Bio
+        </div>
       </div>
 
-      {/* Line 2: STORE NAME — big, branded */}
+      {/* Bouncing arrow — safe zone bottom */}
       <div style={{
-        position: "absolute", bottom: SAFE_BOTTOM + 130, left: 0, right: 0, textAlign: "center",
-        fontFamily: titleFont, fontSize: 88, color: "#FFE500", letterSpacing: 2,
-        textShadow: `0 0 50px ${brandColor}, 0 4px 20px rgba(0,0,0,0.9)`,
-        transform: `translateY(${line2Slide}px)`, opacity: line2Opacity,
-        lineHeight: 1,
-      }}>
-        {storeName}
-      </div>
-
-      {/* Line 3: "on eBay → Link in Bio" */}
-      <div style={{
-        position: "absolute", bottom: SAFE_BOTTOM + 55, left: 0, right: 0, textAlign: "center",
-        fontFamily: bebas, fontSize: 58, color: "#fff", letterSpacing: 3,
-        textShadow: "0 2px 12px rgba(0,0,0,0.9)",
-        opacity: line3Opacity,
-      }}>
-        on eBay · Link in Bio
-      </div>
-
-      {/* Bouncing arrow */}
-      <div style={{
-        position: "absolute", bottom: SAFE_BOTTOM - 10, left: 0, right: 0, textAlign: "center",
-        fontSize: 56, transform: `translateY(${arrowY}px)`, opacity: arrowOpacity,
+        position: "absolute", bottom: SAFE_BOTTOM + 10, left: 0, right: 0, textAlign: "center",
+        fontSize: 60, transform: `translateY(${arrowY}px)`, opacity: arrowOpacity,
       }}>
         👇
       </div>
@@ -351,6 +411,7 @@ export const ViralHookMachine: React.FC<TemplateProps & { categoryName?: string 
   const musicFile = pickMusic(title);
   const { text: hookText, trigger: hookTrigger } = pickHook(title);
   const titleFont = pickFont(title);
+  const urgencyCTA = pickUrgencyCTA(title);
   const displayTitle = cleanTitle(title);
 
   // Scene markers — faster gallery so price comes sooner
@@ -377,6 +438,7 @@ export const ViralHookMachine: React.FC<TemplateProps & { categoryName?: string 
     if (frame === 0) {
       console.log(`\n🎲 Randomness for "${title.slice(0, 45)}":`);
       console.log(`   🪝 Hook [${hookTrigger}]: "${hookText}"`);
+      console.log(`   📣 CTA: "${urgencyCTA}"`);
       console.log(`   🎵 Music: ${musicFile}`);
       console.log(`   🔤 Font: ${titleFont === bebas ? "Bebas Neue" : titleFont === oswald ? "Oswald" : "Montserrat"}`);
       console.log(`   🖼️  Transitions: ${allImages.map((_, i) => pickTransitionLabel(title, i)).join(" → ")}\n`);
@@ -455,7 +517,7 @@ export const ViralHookMachine: React.FC<TemplateProps & { categoryName?: string 
 
       {/* ════ SCENE 5 — CTA (4s) ════ */}
       <Sequence from={CTA_START} durationInFrames={CTA_FRAMES} premountFor={10}>
-        <CTAScene lastImage={lastImage} storeName={storeName} brandColor={brandColor} titleFont={titleFont} categoryName={categoryName} />
+        <CTAScene lastImage={lastImage} storeName={storeName} brandColor={brandColor} titleFont={titleFont} categoryName={categoryName} urgencyCTA={urgencyCTA} />
       </Sequence>
 
     </AbsoluteFill>

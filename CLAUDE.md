@@ -155,6 +155,39 @@ Every product image MUST:
 - Spring physics on ALL element entrances (never linear)
 - Ken Burns on ALL product images (minimum 3% scale drift per 3 seconds)
 
+## CTA SCENE RULES — MANDATORY (FAIL-SAFE: REJECT IF MISSING):
+- EVERY video MUST end with a dedicated CTA scene — NEVER skip it
+- CTA duration: minimum 90 frames (3 seconds)
+- Store name MUST be the LARGEST text in the entire video
+- Text must appear within first 300ms (9 frames) of the CTA scene
+- Flash cut OR zoom transition INTO the CTA — no abrupt jump
+- Use urgency-driven CTA copy (NEVER "link in bio" or "check it out"):
+  - "GRAB IT BEFORE IT'S GONE"
+  - "ONLY ONE AVAILABLE"
+  - "STILL LIVE ON EBAY"
+  - "DON'T MISS THIS"
+  - "SELLING FAST — SHOP NOW"
+  - "LIVE ON EBAY NOW"
+  - "LAST CHANCE — LINK IN BIO"
+- Store name + urgency CTA always visible together
+- Scale animation: 1.0 → 1.1 "pop" on store name
+- High contrast: white text on dark overlay (rgba 0,0,0,0.75+)
+- CTA must loop back visually — last frame connects to first (black)
+- Pulsing border + corner accents reinforce urgency
+
+## CTA SCRIPT FORMAT — ALWAYS END WITH:
+```json
+{
+  "ctaScene": {
+    "text": "STORE NAME",
+    "subText": "GRAB IT BEFORE IT'S GONE",
+    "animation": "pop-in-scale",
+    "duration": 90,
+    "background": "blurred-product-image"
+  }
+}
+```
+
 ## PACING RULES — MANDATORY:
 - Hook scene: ≤ 60 frames (2 seconds)
 - Gallery per image: 60–75 frames (2–2.5 seconds)

@@ -193,10 +193,12 @@ async function renderListing(row: ListingRow, index: number, total: number) {
   console.log(`   Category: ${props.categoryName || "N/A"}`);
   console.log(`   Images: ${1 + images.additionalImages.length}`);
 
-  // Create slug from title
-  const slug = row.itemNumber
-    ? `${storeName}-${row.itemNumber}`
-    : `${storeName}-${row.title.split(" ").slice(0, 4).join("-").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 40)}`;
+  // Create slug — always include title so filenames are unique even when
+  // item numbers collide due to Excel scientific notation truncation
+  const titleSlug = row.title
+    .split(" ").slice(0, 5).join("-")
+    .toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 45);
+  const slug = `${storeName}-${String(index + 1).padStart(3, "0")}-${titleSlug}`;
 
   const outFile = path.join(outputDir, `${slug}.mp4`);
   const propsFile = path.join(outputDir, `.props-${index}.json`);
