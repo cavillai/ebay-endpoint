@@ -20,6 +20,7 @@ import { Audio } from "@remotion/media";
 import { LightLeak } from "@remotion/light-leaks";
 import { loadFont as loadBebas } from "@remotion/google-fonts/BebasNeue";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
+import { PRICE_ANIMATIONS } from "./PriceAnimations";
 import { z } from "zod";
 
 // ── Fonts — loaded at module level, blocks render until ready ─────────────
@@ -35,6 +36,7 @@ export const ebayProductSchema = z.object({
   platform:    z.enum(["tiktok", "instagram"]).default("tiktok"),
   title:       z.string(),
   price:       z.coerce.number(),
+  currency:    z.string().default("USD"),
   condition:   z.string().default("Pre-owned"),
   brand:       z.string().optional().default(""),
   size:        z.string().optional().default(""),
@@ -46,8 +48,9 @@ export const ebayProductSchema = z.object({
   bgColor:     z.string().default("#111111"),
   categoryName: z.string().optional().default(""),
   videoStyle:  z.enum(["classic","neon","cinematic","split"]).default("classic"),
-  transitionMp4: z.string().optional().default(""), // e.g. "assets/transitions/wipes/wipe-left.mp4"
-  renderSeed:  z.coerce.number().default(0),         // unique per render for true variety
+  transitionMp4: z.string().optional().default(""),
+  renderSeed:  z.coerce.number().default(0),
+  priceAnimationId: z.string().optional().default("count-up"),
 });
 
 export type EbayProductVideoProps = z.infer<typeof ebayProductSchema>;
@@ -232,10 +235,11 @@ const ImageSlide: React.FC<{
 // MAIN COMPOSITION
 // ══════════════════════════════════════════════════════════════════════════
 export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
-  storeName, platform, title, price, condition, brand, size,
+  storeName, platform, title, price, currency = "USD", condition, brand, size,
   imageUrls, audioFile, hook, ctaText, accentColor, bgColor,
   videoStyle = "classic", categoryName = "",
   transitionMp4 = "", renderSeed = 0,
+  priceAnimationId = "count-up",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -282,12 +286,7 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
       ? Math.sin(frame * 2.8) * interpolate(frame, [310, 322], [10, 0])
       : 0;
 
-  const priceProgress = spring({
-    frame: frame - 275,
-    fps,
-    config: { damping: 80, stiffness: 100 },
-  });
-  const displayPrice = interpolate(priceProgress, [0, 1], [0, price]);
+  // priceProgress / displayPrice removed — now handled by PriceAnimations components
 
 
   // ── SCENE 4: Details ───────────────────────────────────────────────────
@@ -527,33 +526,32 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
           {/* Dark overlay */}
           <AbsoluteFill style={{ backgroundColor: "rgba(0,0,0,0.6)" }} />
 
-          {/* Price card — glassmorphism */}
+          {/* Price animation — randomly picked from library */}
           <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
             <div style={{
               background: "rgba(0,0,0,0.5)",
               backdropFilter: "blur(16px)",
               WebkitBackdropFilter: "blur(16px)",
-              border: "1px solid rgba(255,255,255,0.2)",
+              border: `1px solid ${priceColor}33`,
               borderRadius: 24,
               padding: "40px 60px",
               textAlign: "center",
+              position: "relative",
+              overflow: "visible",
             }}>
-              <div style={{
-                fontFamily: inter, fontSize: 28,
-                color: "rgba(255,255,255,0.7)", marginBottom: 8,
-              }}>
-                Only
-              </div>
-              <div style={{
-                fontFamily: bebas,
-                fontSize: 112,
-                color: priceColor,
-                fontVariantNumeric: "tabular-nums",
-                lineHeight: 1,
-                textShadow: `0 0 60px ${priceColor}88`,
-              }}>
-                ${displayPrice.toFixed(2)}
-              </div>
+              {(() => {
+                const anim = PRICE_ANIMATIONS.find(a => a.id === priceAnimationId)
+                  || PRICE_ANIMATIONS[0];
+                const { Component } = anim;
+                return (
+                  <Component
+                    price={price}
+                    currency={currency}
+                    accentColor={priceColor}
+                    renderSeed={renderSeed}
+                  />
+                );
+              })()}
             </div>
           </AbsoluteFill>
 

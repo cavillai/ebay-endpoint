@@ -314,7 +314,12 @@ async function renderListing(row: ListingRow, index: number, total: number) {
   const ctaText       = pickCTA(platform, storeName!, rand % 8);
   const audioFile     = `music/${pickMusic(musicFiles, rand % musicFiles.length)}`;
 
+  // Pick price animation from library
+  const PRICE_ANIMS = ["count-up","drop-bounce","slot-machine","typewriter","slam","split-reveal","glitch"];
+  const priceAnimationId = PRICE_ANIMS[rand % PRICE_ANIMS.length];
+
   console.log(`   🎨 ${palette.name} | 🎬 ${videoStyle} | 🎞️  ${transitionMp4.split("/").pop() || "light-leak"}`);
+  console.log(`   💰 Price anim: ${priceAnimationId}`);
   console.log(`   🪝 "${hook}" | 📣 "${ctaText}"`);
   console.log(`   🎵 ${audioFile}`);
   console.log(`   Price: $${row.price} | Condition: ${row.condition} | Images: ${allImageUrls.length}`);
@@ -337,6 +342,7 @@ async function renderListing(row: ListingRow, index: number, total: number) {
     videoStyle,
     transitionMp4,
     renderSeed,
+    priceAnimationId,
   };
 
   const titleSlug = row.title
