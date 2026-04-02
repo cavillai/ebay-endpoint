@@ -359,20 +359,22 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", fontFamily: inter, overflow: "hidden" }}>
 
-      {/* ── AUDIO: full volume from frame 1, skip quiet track intros ─────
-          trimBefore=20 skips first ~0.67s so music hits from frame 1
-          No ramp-up — music is loud and present from the very first frame
-          Ducking reduced to 0.45 so music stays audible during gallery  */}
+      {/* ── AUDIO: hip hop/pop — loud from frame 0, never quiet ─────────
+          trimBefore=5 skips only 5 frames (~0.17s) to avoid any click
+          Volume 0.92 from frame 0 — energetic and present throughout
+          Minimal duck during gallery (0.60) — music always felt        */}
       <Audio
         src={staticFile(audioFile)}
-        trimBefore={20}
+        trimBefore={5}
         volume={(f) =>
           interpolate(
             f,
-            [0, 1,                              // full volume at frame 1
-             GALLERY_START, GALLERY_START + 6,  // gentle duck during gallery captions
-             PRICE_START - 4, PRICE_START + 4], // restore full before price slam
-            [0.85, 0.85, 0.85, 0.45, 0.45, 0.85],
+            [0,    2,
+             GALLERY_START,     GALLERY_START + 5,
+             PRICE_START - 3,   PRICE_START + 3],
+            [0.92, 0.92,
+             0.92, 0.60,
+             0.60, 0.92],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
           )
         }
