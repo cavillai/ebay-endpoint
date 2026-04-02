@@ -55,6 +55,13 @@ export const ebayProductSchema = z.object({
 
 export type EbayProductVideoProps = z.infer<typeof ebayProductSchema>;
 
+// ── Flash cut sub-component (used in transitions) ────────────────────────
+const FlashCut: React.FC<{ color?: string }> = ({ color = "#fff" }) => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [0, 3, 8], [0, 1, 0], { extrapolateRight: "clamp" });
+  return <AbsoluteFill style={{ backgroundColor: color, opacity }} />;
+};
+
 // ── Video style configurations ────────────────────────────────────────────
 export type VideoStyle = "classic" | "neon" | "cinematic" | "split";
 
@@ -461,17 +468,21 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
         </Sequence>
       ))}
 
-      {/* Image transitions — varied per renderSeed + style */}
+      {/* Image transitions — unique asset on EVERY cut, not just first ──────
+          Build a pool of up to 5 transition paths from the passed transitionMp4
+          (the batch renderer sends a single pick; we derive variety from renderSeed) */}
       {allImages.slice(1).map((_, i) => {
         const transFrame = GALLERY_START + (i + 1) * FRAMES_PER_IMAGE - 8;
-        // Use renderSeed + image index for unique hue/seed per render
         const leakSeed = ((renderSeed + i * 13 + 7) % 20) + 1;
-        const hue = ((renderSeed * 37 + i * 73) % 360);
+        const hue      = ((renderSeed * 37 + i * 73) % 360);
 
-        if (transitionMp4 && i === 0) {
-          // Use the selected transition MP4 asset on the first cut
+        // Decide what kind of transition this cut gets
+        // Cycle: MP4 → LightLeak → MP4 → Flash → LightLeak …
+        const cutType = (i + renderSeed) % 3; // 0=mp4, 1=lightleak, 2=flash/cinematic
+
+        if (transitionMp4 && cutType === 0) {
           return (
-            <Sequence key={`trans-mp4-${i}`} from={transFrame - 4} durationInFrames={30} premountFor={10}>
+            <Sequence key={`trans-mp4-${i}`} from={transFrame - 4} durationInFrames={28} premountFor={10}>
               <AbsoluteFill>
                 <Video
                   src={staticFile(transitionMp4)}
@@ -483,31 +494,25 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
           );
         }
 
-        if (videoStyle === "split") {
-          // Flash cut — white flash
+        if (cutType === 2 || videoStyle === "split") {
+          // White or color flash cut
+          const flashColor = videoStyle === "split" ? accentColor : "#fff";
           return (
-            <Sequence key={`trans-${i}`} from={transFrame} durationInFrames={6} premountFor={3}>
+            <Sequence key={`flash-${i}`} from={transFrame} durationInFrames={8} premountFor={3}>
               <AbsoluteFill>
-                <div style={{ position: "absolute", inset: 0, backgroundColor: "#fff",
-                  opacity: interpolate(useCurrentFrame(), [0, 3, 6], [0, 1, 0], { extrapolateRight: "clamp" }) }} />
+                <FlashCut color={flashColor} />
               </AbsoluteFill>
             </Sequence>
           );
         }
-        if (videoStyle === "cinematic") {
-          return (
-            <Sequence key={`trans-${i}`} from={transFrame - 4} durationInFrames={24} premountFor={5}>
-              <AbsoluteFill>
-                <LightLeak durationInFrames={24} seed={leakSeed} hueShift={Math.min(hue, 359)} />
-              </AbsoluteFill>
-            </Sequence>
-          );
-        }
-        // classic + neon — light leak with renderSeed-driven hue
+
+        // LightLeak — hue and seed vary every cut via renderSeed
+        const duration = videoStyle === "cinematic" ? 24 : 18;
         return (
-          <Sequence key={`leak-${i}`} from={transFrame} durationInFrames={18} premountFor={5}>
+          <Sequence key={`leak-${i}`} from={videoStyle === "cinematic" ? transFrame - 4 : transFrame}
+            durationInFrames={duration} premountFor={5}>
             <AbsoluteFill>
-              <LightLeak durationInFrames={18} seed={leakSeed} hueShift={Math.min(hue, 359)} />
+              <LightLeak durationInFrames={duration} seed={leakSeed} hueShift={Math.min(hue, 359)} />
             </AbsoluteFill>
           </Sequence>
         );
@@ -718,19 +723,18 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             alignItems: "center",
             gap: 20,
           }}>
-            {/* "[StoreName] on eBay" — the primary CTA */}
+            {/* Store name — large, branded, no "on eBay" text (logo handles that) */}
             <div style={{
               fontFamily: bebas,
-              fontSize: 64,
+              fontSize: 80,
               color: "#FFFFFF",
-              letterSpacing: 4,
+              letterSpacing: 6,
               textAlign: "center",
               transform: `translateY(${ctaSlide}px)`,
-              textShadow: `0 0 30px ${accentColor}80, 0 2px 16px rgba(0,0,0,0.95)`,
-              lineHeight: 1.1,
+              textShadow: `0 0 40px ${accentColor}90, 0 2px 16px rgba(0,0,0,0.95)`,
+              lineHeight: 1,
             }}>
-              {storeName}{" "}
-              <span style={{ color: accentColor }}>on eBay</span>
+              {storeName}
             </div>
 
             {/* Urgency sub-line (ctaText e.g. "GRAB IT BEFORE IT'S GONE") */}
