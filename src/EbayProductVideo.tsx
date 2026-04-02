@@ -218,7 +218,7 @@ const ImageSlide: React.FC<{
 export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   storeName, platform, title, price, condition, brand, size,
   imageUrls, audioFile, hook, ctaText, accentColor, bgColor,
-  videoStyle = "classic",
+  videoStyle = "classic", categoryName = "",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -251,12 +251,6 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
   });
   const displayPrice = interpolate(priceProgress, [0, 1], [0, price]);
 
-  const badgeProgress = spring({
-    frame: frame - 285,
-    fps,
-    config: { damping: 14, stiffness: 180 },
-  });
-  const badgeY = interpolate(badgeProgress, [0, 1], [200, 0]);
 
   // ── SCENE 4: Details ───────────────────────────────────────────────────
   const makeBadgeX = (delay: number) => {
@@ -268,16 +262,17 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
     return interpolate(s, [0, 1], [400, 0]);
   };
 
-  const detailBadges = [
-    { label: brand || "Brand", color: accentColor, textColor: "#000", delay: 0 },
-    { label: size ? `Size ${size}` : condition, color: "#FFFFFF", textColor: "#000", delay: 12 },
-    { label: condition, color: condition.toLowerCase().includes("excellent") || condition.toLowerCase().includes("like new") ? "#00C851" : condition.toLowerCase().includes("good") ? "#FFD700" : "#FF8C00", textColor: "#000", delay: 24 },
-  ].filter((b) => b.label);
+  // Scene 4 badges — condition appears exactly ONCE here, nowhere else
+  const conditionColor = condition.toLowerCase().includes("excellent") || condition.toLowerCase().includes("like new")
+    ? "#00C851"
+    : condition.toLowerCase().includes("good") ? "#FFD700" : "#FF8C00";
 
-  const midBrandOpacity = interpolate(
-    frame, [355, 365, 375, 385], [0, 1, 1, 0],
-    { extrapolateRight: "clamp" }
-  );
+  const detailBadges = [
+    brand ? { label: brand, color: accentColor, textColor: "#000", delay: 0 } : null,
+    size  ? { label: `Size ${size}`, color: "#FFFFFF", textColor: "#000", delay: 12 } : null,
+    { label: condition, color: conditionColor, textColor: "#000", delay: size ? 24 : brand ? 12 : 0 },
+  ].filter(Boolean) as Array<{ label: string; color: string; textColor: string; delay: number }>;
+
 
   // ── SCENE 5: CTA ───────────────────────────────────────────────────────
   const nameScale = spring({
@@ -495,20 +490,7 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             })}
           </AbsoluteFill>
 
-          {/* Condition badge springs up */}
-          <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-end", paddingBottom: SAFE_BOTTOM + 50 }}>
-            <div style={{
-              transform: `translateY(${badgeY}px)`,
-              background: accentColor,
-              borderRadius: 100,
-              padding: "12px 32px",
-              fontFamily: inter,
-              fontSize: 32, fontWeight: 700,
-              color: "#000",
-            }}>
-              {condition}
-            </div>
-          </AbsoluteFill>
+          {/* No badge here — price + particles only in Scene 3 */}
 
         </AbsoluteFill>
       </Sequence>
@@ -557,21 +539,7 @@ export const EbayProductVideo: React.FC<EbayProductVideoProps> = ({
             ))}
           </AbsoluteFill>
 
-          {/* Mid-brand emphasis — bottom safe zone, no badge overlap */}
-          <div style={{
-            position: "absolute",
-            bottom: SAFE_BOTTOM + 30,
-            left: 0, right: 0,
-            textAlign: "center",
-            fontFamily: bebas,
-            fontSize: 64,
-            color: accentColor,
-            opacity: midBrandOpacity,
-            letterSpacing: 4,
-            textShadow: `0 0 30px ${accentColor}80`,
-          }}>
-            {storeName}
-          </div>
+          {/* No mid-brand here — storeName already in gallery watermark & CTA */}
 
         </AbsoluteFill>
       </Sequence>
