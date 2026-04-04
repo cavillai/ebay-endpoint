@@ -21,7 +21,7 @@ import {
   handleAccountDeletionNotification,
   getNotificationStats,
 } from "./ebay-notifications";
-import { searchItems, searchItemsByKeyword, getItem } from "./ebay-api";
+import { searchItems, searchItemsByKeyword, getItem, fetchAllStoreListings } from "./ebay-api";
 import { searchVideoSchema, itemVideoSchema } from "./ebay-validation";
 import { renderMedia, selectComposition as selectComp } from "@remotion/renderer";
 import { generateVideoScript, generateScriptForStore, Platform } from "./script-generator";
@@ -135,6 +135,42 @@ app.get("/health", (req, res) => {
     },
   });
 });
+
+// ─── Store Listings Endpoint ─────────────────────────────────────────────────
+
+// GET /store-listings?storeName=X&limit=75
+// Returns all active listings for a store as lightweight JSON (no rendering).
+// Used by local render scripts so they don't need eBay credentials locally.
+app.get(
+  "/store-listings",
+  handler(async (req, res) => {
+    const storeName = req.query.storeName as string;
+    const limit = Math.min(parseInt((req.query.limit as string) || "75"), 150);
+
+    if (!storeName) {
+      res.status(400).json({ error: "storeName query parameter is required" });
+      return;
+    }
+
+    const items = await fetchAllStoreListings(storeName, limit);
+
+    if (items.length === 0) {
+      res.status(404).json({ error: `No listings found for seller "${storeName}"` });
+      return;
+    }
+
+    const listings = items.map((item) => ({
+      itemId:       item.itemId,
+      title:        item.title,
+      price:        item.price,
+      condition:    item.condition,
+      categoryName: item.categoryName || "",
+      imageUrl:     item.imageUrl,
+    }));
+
+    res.json({ storeName, total: listings.length, listings });
+  })
+);
 
 // ─── Template Library Endpoints ─────────────────────────────────────────────
 

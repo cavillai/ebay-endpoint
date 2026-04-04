@@ -193,3 +193,37 @@ export async function getItem(itemId: string): Promise<EBayProduct> {
   const response: any = await ebayGet(path);
   return transformItem(response);
 }
+
+/**
+ * Fetch all active listings for a store by running several broad keyword searches
+ * and deduplicating by itemId. Returns up to `limit` unique items.
+ */
+export async function fetchAllStoreListings(
+  storeName: string,
+  limit = 75
+): Promise<EBayProduct[]> {
+  const searchTerms = ["women", "men", "size", "vintage", "new", "lot", "set"];
+  const perTerm = Math.min(50, limit);
+  const seen = new Set<string>();
+  const all: EBayProduct[] = [];
+
+  for (const q of searchTerms) {
+    if (all.length >= limit) break;
+    try {
+      const encodedStore = encodeURIComponent(storeName);
+      const encodedQ = encodeURIComponent(q);
+      const path = `/buy/browse/v1/item_summary/search?q=${encodedQ}&filter=sellers:{${encodedStore}}&limit=${perTerm}&fieldgroups=EXTENDED`;
+      const response: any = await ebayGet(path);
+      for (const item of response.itemSummaries || []) {
+        if (!item.itemId || seen.has(item.itemId)) continue;
+        seen.add(item.itemId);
+        all.push(transformItem(item));
+        if (all.length >= limit) break;
+      }
+    } catch {
+      // skip failed search term, continue with next
+    }
+  }
+
+  return all;
+}
