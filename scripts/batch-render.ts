@@ -1,18 +1,17 @@
 /**
- * Batch Video Renderer — CSV-driven (v2)
- * Reads RenewFit eBay export CSV, uses CSV data directly (title, price,
- * condition, category) and fetches images from eBay API by searching
- * by title within the store.
+ * Batch Video Renderer (v3)
+ * Default: fetches live listings from eBay Browse API using .env credentials.
+ * CSV mode: only used when explicitly requested with --file=path/to/file.csv
  *
  * Usage:
- *   npm run render:batch -- --storeName=RenewFit
- *   npm run render:batch -- --storeName=RenewFit --file=data/listings.csv
- *   npm run render:batch -- --storeName=RenewFit --keyword=dress (no CSV)
+ *   npm run render:batch -- --storeName=RenewFit                    (API default)
+ *   npm run render:batch -- --storeName=RenewFit --file=data/listings.csv  (CSV mode)
+ *   npm run render:batch -- --storeName=RenewFit --keyword=dress    (filter API results)
+ *   npm run render:batch -- --storeName=RenewFit --max=10           (limit listings)
  */
 
 import { execSync } from "child_process";
 import { writeFileSync, mkdirSync, readFileSync, readdirSync, statSync } from "fs";
-import https from "https";
 import http from "http";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
@@ -144,6 +143,25 @@ function findCsvFile(): string | null {
     if (files.length > 1) console.log(`   Multiple CSVs found, using most recent: ${files[0].f}`);
     return path.join(dataDir, files[0].f);
   } catch { return null; }
+}
+
+// ── eBay Browse API — fetch all store listings via Railway proxy ──────────
+async function fetchStoreListingsAPI(store: string): Promise<ListingRow[]> {
+  console.log(`   📡 Fetching listings via Railway /store-listings...`);
+  const url = `${RAILWAY_BASE}/store-listings?storeName=${encodeURIComponent(store)}&limit=75`;
+  const data = await fetchJson(url);
+
+  if (data.error) throw new Error(data.error);
+
+  console.log(`   ✅ ${data.total} listings retrieved`);
+
+  return (data.listings as any[]).map(item => ({
+    title:        item.title || "",
+    price:        item.price || "0",
+    condition:    item.condition || "Pre-owned",
+    categoryName: item.categoryName || "",
+    itemNumber:   item.itemId,
+  }));
 }
 
 // ── HTTP fetch helper ──────────────────────────────────────────────────────
@@ -696,27 +714,32 @@ async function main() {
 
   let rows: ListingRow[] = [];
 
-  const resolvedCsv = csvFile || findCsvFile();
-  if (resolvedCsv) {
-    console.log(`📄 Reading: ${path.basename(resolvedCsv)}`);
-    rows = parseCsv(resolvedCsv);
+  if (csvFile) {
+    // CSV mode — only when --file= is explicitly passed
+    console.log(`📄 Mode: CSV  (${path.basename(csvFile)})\n`);
+    rows = parseCsv(csvFile);
     if (maxItems) rows = rows.slice(0, maxItems);
     console.log(`   ${rows.length} listings found\n`);
-  } else if (keyword) {
-    console.log(`🔍 No CSV — rendering single video for keyword: "${keyword}"\n`);
-    // Fetch from API directly for keyword mode
-    const params = new URLSearchParams({ template, storeName: storeName!, keyword });
-    const data = await fetchJson(`${RAILWAY_BASE}/product-data?${params}`);
-    if (data.error) { console.error("❌", data.error); process.exit(1); }
-    rows = [{
-      title: data.props.title,
-      price: data.props.price,
-      condition: data.props.condition,
-      categoryName: data.props.categoryName || "",
-    }];
   } else {
-    console.error("❌ Drop a CSV in data/ or use --keyword=dress");
-    process.exit(1);
+    // API mode — default
+    console.log(`📡 Mode: eBay Browse API  (default)\n`);
+    console.log(`🔍 Fetching listings for seller "${storeName}" from eBay...`);
+    rows = await fetchStoreListingsAPI(storeName!);
+    if (rows.length === 0) {
+      console.error(`❌ No listings found for seller "${storeName}" on eBay`);
+      process.exit(1);
+    }
+    // Optional keyword filter
+    if (keyword) {
+      const kw = keyword.toLowerCase();
+      rows = rows.filter(r =>
+        r.title.toLowerCase().includes(kw) || r.categoryName.toLowerCase().includes(kw)
+      );
+      console.log(`   Filtered to ${rows.length} listings matching keyword "${keyword}"\n`);
+    } else {
+      console.log(`   ${rows.length} unique listings retrieved\n`);
+    }
+    if (maxItems) rows = rows.slice(0, maxItems);
   }
 
   const results: string[] = [];
